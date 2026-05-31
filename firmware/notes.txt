@@ -1,0 +1,25 @@
+Biggest issues:
+
+1. When the power gets too low, The the battery I'm using doesn't protect itself and can get undervolted, killing the battery.
+I have not yet managed to successfully enter a dead battery state where the firmware detects the battery is low. It works fine at higher voltages,
+but when the battery actually gets really low (like 3.4 volts), I run into big issues.
+
+2. I have multiple times got the device into an unexplainable state when switching batteries. The battery voltage rails read about 2.2V on a brand new battery,
+even though the battery is closer to 4V when disconnected from the device. The device will not boot properly. After disconnecting and reconnecting the battery multiple
+times, it will suddenly start behaving normally. This is obviouslly a huge problem that would need to be solved to make this device worth giving to other people
+
+
+for release:
+- improve history view
+- support viewing humidity history?
+- figure out how to detect when the fuel guage hasn't been configured. Maybe just do it any time there was an incorrect power cycle?
+
+
+For battery saving:
+- downclock the CPU and enable automatic power saving modes
+- Light sleep the CPU when waiting for the display to refresh
+
+Low priority TODO:
+- replace datetime version that only has hour/minute/second. Change read/write to only use those registers to save time
+- can do some async i2c stuff, like when hibernating, you can hibernate the display at the same time as the eeprom is updated
+

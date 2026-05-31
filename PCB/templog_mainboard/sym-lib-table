@@ -1,0 +1,8 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "FPC-05F-24PH20")(type "KiCad")(uri "${KIPRJMOD}/PartLibrary/FPC-05F-24PH20/FPC-05F-24PH20.kicad_sym")(options "")(descr ""))
+  (lib (name "K2-1109DE-D4SW-01")(type "KiCad")(uri "${KIPRJMOD}/PartLibrary/K2-1109DE-D4SW-01/K2-1109DE-D4SW-01.kicad_sym")(options "")(descr ""))
+  (lib (name "LTC2954CTS8_2_TRMPBF")(type "KiCad")(uri "${KIPRJMOD}/PartLibrary/LTC2954CTS8_2_TRMPBF/LTC2954CTS8-2_TRMPBF.kicad_sym")(options "")(descr ""))
+  (lib (name "FPC-SMD_AFC07-S24ECA-00")(type "KiCad")(uri "${KIPRJMOD}/PartLibrary/FPC-SMD_AFC07-S24ECA-00/FPC-SMD_AFC07-S24ECA-00.kicad_sym")(options "")(descr ""))
+  (lib (name "TC-1109DE-C-H")(type "KiCad")(uri "${KIPRJMOD}/PartLibrary/TC-1109DE-C-H/TC-1109DE-C-H.kicad_sym")(options "")(descr ""))
+)

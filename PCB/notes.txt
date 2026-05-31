@@ -1,0 +1,73 @@
+------------- Parts -------------
+
+sensor:
+SHT45
+
+controller:
+ESP32-S3-MINI-1
+
+eeprom:
+24LC512
+
+fuel guage:
+BQ27441
+
+charger:
+BQ24075
+
+battery:
+
+RTC:
+DS3231MZ
+
+USB connector:
+GCT USB4105
+
+Power path selector:
+LM66200DRLR
+
+USB voltage regulator:
+TLV75533PDBVR
+
+connector
+FPC-05F-24PH20
+
+------------- I2C Addresses -------------
+7 bit representation / 8 bit representation
+
+DS3231MZ:
+0x68 / 0xD0
+
+SHT45-A (letter determines address)
+0x44
+
+BQ27441
+0x55
+
+24LC512 (last three bits are determined by A0, A1, A3 pins. Set all to ground for 000)
+0x50
+
+------------ References --------------
+
+Battery management reference:
+https://cdn.sparkfun.com/assets/learn_tutorials/5/3/0/sparkfun-battery-babysitter-v10-schematic.pdf
+
+esp32 raw e-ink driver example PCB:
+https://www.waveshare.com/wiki/E-Paper_ESP32_Driver_Board
+
+pinouts:
+https://github.com/atomic14/esp32-s3-pinouts
+
+https://www.waveshare.com/wiki/1.54inch_e-Paper_Module_Manual#Resources
+
+
+------------ Problems ----------------
+
+fuel gauge GPOUT has a battery level pullup. This required a trace cut because it should be pulled up to 3.3V. Add back in with a voltage divider.
+
+CHG status is not connected to an RTC pin, so the device can't be automatically woken up by USB connection.
+USBdetect pin cannot be used instead because it does not pull low.
+
+board capacitance takes over 10 seconds to bring 3.3v rail to 0v. This causes the display to artifact when powering down. 
+Might need a mosfet to completely power down the display, or some way to discharge the leftover power
+

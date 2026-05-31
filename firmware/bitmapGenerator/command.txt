@@ -1,0 +1,5 @@
+./bitmapGenerator/bitmapGen.py bitmapGenerator/images src/bitmaps.h
+
+or
+
+python bitmapGenerator/bitmapGen.py bitmapGenerator/images src/bitmaps.h
