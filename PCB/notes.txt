@@ -63,6 +63,8 @@ https://www.waveshare.com/wiki/1.54inch_e-Paper_Module_Manual#Resources
 
 ------------ Problems ----------------
 
+Charging rate is very slow. The BQ2407 resister configuration is set to the slowest charging rate which takes over an hour.
+
 fuel gauge GPOUT has a battery level pullup. This required a trace cut because it should be pulled up to 3.3V. Add back in with a voltage divider.
 
 CHG status is not connected to an RTC pin, so the device can't be automatically woken up by USB connection.
