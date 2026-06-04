@@ -13,7 +13,7 @@ for release:
 - improve history view
 - support viewing humidity history?
 - figure out how to detect when the fuel guage hasn't been configured. Maybe just do it any time there was an incorrect power cycle?
-
+- utilize fuel gauge GPOUT (fuelGaugeGPIO)
 
 For battery saving:
 - downclock the CPU and enable automatic power saving modes

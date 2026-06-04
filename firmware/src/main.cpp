@@ -69,7 +69,7 @@ void configurePins() {
    setPinMode(pins::powerBtn, PinMode::Input);
    setPinMode(pins::powerKill, PinMode::Input);
    setPinMode(pins::USBDetect, PinMode::Input);
-   setPinMode(pins::fuelGaugeGPIO, PinMode::Input);  // RIP
+   setPinMode(pins::fuelGaugeGPIO, PinMode::Input);
    setPinMode(pins::chargeStatus, PinMode::Input_Pullup);
    setPinMode(pins::clockAlarm, PinMode::Input);
 }

@@ -10,7 +10,7 @@ namespace pins{
    constexpr int dsp_BUSY = 11;
    constexpr int powerBtn = 14; 
    constexpr int USBDetect = 15; 
-   constexpr int fuelGaugeGPIO = 17; // Rest in peace
+   constexpr int fuelGaugeGPIO = 17;
    constexpr int clockAlarm = 21; 
    constexpr int chargeStatus = 33;   
    constexpr int SCL = 34;   
