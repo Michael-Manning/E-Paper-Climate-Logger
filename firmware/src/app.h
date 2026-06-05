@@ -128,7 +128,7 @@ private:
     void SettingsMenu();
     void WelcomeScreen();
 
-    void drawGraph(int left, int right, int bottom, int top, const int16_t* dataY, int dataCount, int* min, int* max);
+    void drawGraph(int left, int right, int bottom, int top, const int16_t* dataY, int dataCount, int16_t* min, int16_t* max);
 
     State currentState = State::StandardDisplay;
     std::array<std::function<void()>, static_cast<size_t>(State::Count)> handlers;

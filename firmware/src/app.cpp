@@ -99,7 +99,7 @@ static inline int mapY_to_screen(int v, int ymin, int height, int bottom, int yr
 }
 
 // y coordinates including bottom,top are from physical bottom of the screen
-void App::drawGraph(int left, int right, int bottom, int top, const int16_t* dataY, int dataCount, int* min, int* max){
+void App::drawGraph(int left, int right, int bottom, int top, const int16_t* dataY, int dataCount, int16_t* min, int16_t* max){
     auto d = disp->d;
     uint32_t timeStamp = micros();
     
@@ -352,7 +352,7 @@ void App::StandardDisplay(){
         }
         logf("\n");
 
-        int min, max;
+        int16_t min, max;
         drawGraph(0, 199, 13, 118, rawTemperatureBuffer.data(), readingCount, &min, &max);
 
         d->setFont(&FreeMonoBold9pt7b);
@@ -637,7 +637,7 @@ void App::ViewData(){
             rawTemperatureBuffer[i - historyEnd] = climateHistory2[i].temperature_raw;
         }
 
-        int min, max;
+        int16_t min, max;
         drawGraph(0, 199, 13, 150, rawTemperatureBuffer.data(), readingCount, &min, &max);
 
         d->setFont(&FreeMonoBold9pt7b);
