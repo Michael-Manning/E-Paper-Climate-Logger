@@ -19,9 +19,9 @@ Key features:
 
 The entire project is open source, including hardware schematics, PCB layout, firmware, and enclosure CAD files. A detailed build video is available on YouTube: [E-Paper Climate Logger](https://www.youtube.com/watch?v=I44iGj7gLGA).
 
-![alt text](images/image1.jpg "")
-![alt text](images/image3.jpg "")
-![alt text](images/image2.jpg "")
+![photo-device-on](img/photo-device-on.jpg "")
+![photo-enclosure](img/photo-enclosure.jpg "")
+![photo-pcb](img/photo-pcb.jpg "")
 
 [![E-Paper Climate Logger](https://img.youtube.com/vi/I44iGj7gLGA/maxresdefault.jpg)](https://youtu.be/I44iGj7gLGA)
 
@@ -32,7 +32,6 @@ E-Paper-Climate-Logger/
 ├── CAD/                 # 3D case design (OpenSCAD source and STL exports)
 ├── PCB/                 # KiCad hardware design, schematics, datasheets, references
 ├── firmware/            # PlatformIO firmware (ESP32-S3, Arduino framework)
-├── images/              # Diagrams and photos (e.g., simple‑schematic.png)
 ├── LICENSE              # License file
 └── README.md            # This file
 ```
@@ -53,13 +52,9 @@ All hardware design files for the custom mainboard (`templog_mainboard`). This d
 
 To view or modify the PCB design, install KiCad 7 or later and open `templog_mainboard.kicad_pro`.
 
-### firmware
+### Firmware
 
 PlatformIO project for the ESP32‑S3 using the Arduino framework. It handles sensor reading, timekeeping, data logging to EEPROM, e‑paper display updates, button handling, and power management (deep sleep, wake sources). See `firmware/README.md` for detailed build and flashing instructions.
-
-### images
-
-Contains supporting visuals, such as the simplified connection diagram used in documentation.
 
 ## Getting Started
 
@@ -88,7 +83,7 @@ Contains supporting visuals, such as the simplified connection diagram used in d
    pio device monitor
    ```
 
-For detailed firmware documentation, including folder structure, driver details, and low‑power operation, refer to `firmware/README.md`.
+For detailed firmware documentation, including folder structure, driver details, and low‑power operation, refer to [`firmware/README.md`](firmware/README.md).
 
 ### Enclosure Assembly
 
@@ -98,7 +93,7 @@ Print the STL files from `CAD/export/` using a high‑resolution FDM printer (0.
 
 A simplified schematic of the main connections is shown below. All I2C peripherals (SHT45, DS3231, 24LC512, BQ27441) share the same bus. The e‑paper display is driven via SPI, and the LTC2954 soft power button controls the BQ24075 power path.
 
-![Simplified schematic](images/simple-schematic.png)
+![Simplified schematic](img/simple-schematic.png)
 
 For complete schematics and PCB layout, open the KiCad project in `PCB/templog_mainboard/`.
 

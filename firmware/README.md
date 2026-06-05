@@ -72,7 +72,7 @@ firmware/
 
 The following diagram illustrates the connections between the ESP32-S3 and peripherals. All I2C devices share the same bus (SDA/SCL); SPI is used only for the e-paper display.
 
-![simple-schematic](../images/simple-schematic.png)
+![simple-schematic](../img/simple-schematic.png)
 
 Pin mappings are defined in `src/pinout.h`.
 
