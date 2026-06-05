@@ -19,6 +19,12 @@ Key features:
 
 The entire project is open source, including hardware schematics, PCB layout, firmware, and enclosure CAD files. A detailed build video is available on YouTube: [E-Paper Climate Logger](https://www.youtube.com/watch?v=I44iGj7gLGA).
 
+![alt text](images/image1.jpg "")
+![alt text](images/image3.jpg "")
+![alt text](images/image2.jpg "")
+
+[![E-Paper Climate Logger](https://img.youtube.com/vi/I44iGj7gLGA/maxresdefault.jpg)](https://youtu.be/I44iGj7gLGA)
+
 ## Repository Structure
 
 ```
