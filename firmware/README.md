@@ -1,13 +1,132 @@
-# templog_firmware
+Thank you for the correction. Below is the revised professional README for the firmware, reflecting the actual PlatformIO + Arduino framework structure, without emojis, and including a Mermaid diagram for hardware connections.
 
-.pio
-.vscode/.browse.c_cpp.db*
-.vscode/c_cpp_properties.json
-.vscode/launch.json
-.vscode/ipch
+---
 
-buildCache
+# Firmware README
 
-buildCache/
+## Overview
 
-buildCache/*
+The firmware runs on an ESP32-S3 microcontroller and is built using PlatformIO with the Arduino framework. It reads temperature and humidity from an SHT45 sensor, timestamps each reading with a DS3231 real-time clock, stores records in a 24LC512 EEPROM, monitors battery status via a BQ27441 fuel gauge, and displays information on an e-paper screen. The system is designed for low-power operation, entering deep sleep between measurement intervals and waking via the RTC alarm or user buttons.
+
+## Getting Started
+
+### Prerequisites
+
+- PlatformIO Core (installed via pip or standalone installer)
+- USB-C cable for programming and power
+- Assembled E-Paper Climate Logger hardware
+
+### Dependencies
+
+All required libraries are specified in `platformio.ini` and will be fetched automatically by PlatformIO. The main dependencies include:
+
+- GxEPD2 (e-paper display driver)
+
+The Arduino framework and ESP32-S3 board definition are also handled automatically.
+
+### Building and Flashing
+
+1. Clone the repository and navigate to the firmware directory.
+2. Connect the device via USB-C.
+3. Build and upload:
+
+   ```
+   pio run --target upload
+   ```
+
+4. Monitor serial output (optional):
+
+   ```
+   pio device monitor
+   ```
+
+The `platformio.ini` file already configures the correct upload port (`/dev/ttyACM0` by default) and baud rate (115200). Adjust `monitor_port` and `upload_port` if necessary.
+
+## Folder Structure
+
+```
+firmware/
+├── src/
+│   ├── drivers/               # Low-level hardware drivers
+│   │   ├── BQ27441.cpp/h      # Battery fuel gauge
+│   │   ├── BQ27441_Definitions.h
+│   │   ├── DS3231.cpp/h       # Real-time clock
+│   │   ├── EEPROM.cpp/h       # 24LC512 external EEPROM
+│   │   ├── SHT45.cpp/h        # Temperature/humidity sensor
+│   │   └── display.cpp/h      # E-paper display (GxEPD2 wrapper)
+│   ├── Constants.h            # System-wide constants (sleep intervals, etc.)
+│   ├── MAssert.h              # Debug assertions
+│   ├── app.cpp/h              # Application state machine and main logic
+│   ├── bitmaps.h              # Image data for the display
+│   ├── buttons.cpp/h          # Debounced button handling
+│   ├── debugLog.h             # Logging macros
+│   ├── main.cpp               # Entry point, setup() and loop()
+│   ├── pinout.h               # GPIO pin mapping
+│   ├── platform.cpp/h         # Hardware abstraction (initialization)
+│   ├── power.cpp/h            # Sleep management and wake sources
+│   └── timer_setter.h         # Alarm configuration for DS3231
+├── extra_script.py            # PlatformIO pre-build script
+├── platformio.ini             # Build configuration
+└── README.md
+```
+
+## Hardware Connections
+
+The following diagram illustrates the connections between the ESP32-S3 and peripherals. All I2C devices share the same bus (SDA/SCL); SPI is used only for the e-paper display.
+
+![simple-schematic](docs/simple-schematic.png)
+
+Pin mappings are defined in `src/pinout.h`.
+
+## General Operation
+
+The firmware executes a simple state machine:
+
+1. **Initialization**  
+   - All peripherals (I2C, SPI, GPIO) are configured.  
+   - The e-paper display shows a startup screen.  
+   - The RTC is read; if the time is invalid, compilation timestamp is used as fallback.
+
+2. **Main Loop**  
+   - After initialisation, the device enters deep sleep with a wake-up timer set via the DS3231 alarm.  
+   - Wake-up sources: RTC alarm or button press (menu or power).  
+   - Upon wake, the following occurs:  
+        - Sensor readings (SHT45) are taken.  
+        - Battery level is read from BQ27441.  
+        - The reading is stored in the external EEPROM (24LC512) with a timestamp.  
+        - The e-paper display is refreshed with the latest data.  
+   - The device then returns to deep sleep.
+
+3. **Button Handling**  
+   - Menu button (GPIO2): cycles through display views (current, history, battery).  
+   - Power button (GPIO14): forces an immediate measurement and display update.
+
+## Low-Power Design
+
+- The ESP32-S3 enters deep sleep between logging intervals (default: every 15 minutes).  
+- Deep sleep current is minimised by disabling unused peripherals.  
+- The DS3231 generates a periodic alarm on its INT pin (GPIO21) to wake the MCU.  
+- Button wake is enabled via GPIO interrupts.  
+- The display is updated only when new data is available or upon user request; no continuous screen refresh occurs.
+
+## Logging and Storage
+
+- Data records are stored as binary structs in the 24LC512 EEPROM.  
+- The storage implements a circular buffer: when the EEPROM is full, the oldest record is overwritten.  
+- A small header area stores the current write index and total record count.  
+- Records can be retrieved via serial (debug) or displayed on the e-paper screen in history mode.
+
+## Building Custom Hardware
+
+If you are building a variant of the hardware, update `pinout.h` to match your GPIO assignments. The power management logic (charge status, USB detect, power kill) can be adjusted in `power.cpp` and `platform.cpp`.
+
+## Troubleshooting
+
+- **Device does not wake:** Check the DS3231 alarm configuration and GPIO21 connection.  
+- **E-paper shows garbage:** Verify SPI pins and reset sequence in `display.cpp`.  
+- **I2C communication fails:** Confirm pull-up resistors and address settings in each driver file.  
+- **Battery percentage inaccurate:** The BQ27441 requires a one-time capacity configuration; refer to the datasheet and adjust `BQ27441.cpp`.
+
+---
+
+This README focuses on the firmware as it exists in the repository, using PlatformIO and Arduino. For hardware schematics and PCB design, refer to the `PCB` folder at the root of the project.
