@@ -2,6 +2,6 @@
 
 This repository contains the complete firmware, PCB schematics, and CAD for the E-Paper climate logger.
 
-![alt text](https://github.com/Michael-Manning/E-Paper-Climate-Logger/blob/main/images/image1.jpg "")
-![alt text](https://github.com/Michael-Manning/E-Paper-Climate-Logger/blob/main/images/image3.jpg "")
-![alt text](https://github.com/Michael-Manning/E-Paper-Climate-Logger/blob/main/images/image2.jpg "")
+![alt text](images/image1.jpg "")
+![alt text](images/image3.jpg "")
+![alt text](images/image2.jpg "")
