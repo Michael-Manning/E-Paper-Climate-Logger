@@ -97,8 +97,9 @@ The firmware executes a simple state machine:
    - The device then returns to deep sleep.
 
 3. **Button Handling**  
-   - Menu button (GPIO2): cycles through display views (current, history, battery).  
-   - Power button (GPIO14): forces an immediate measurement and display update.
+   - **Menu button (GPIO2)** - Opens main menu: View data, Debug menu, Settings, Set time
+   - **Power button (GPIO14)** - Wakes device from sleep (measurement happens on next alarm cycle)
+   - **Hold power button 3+ seconds** - Graceful shutdown (LTC2954 cuts power after 6 seconds)
 
 ## Operational Notes
 
@@ -109,7 +110,14 @@ The firmware executes a simple state machine:
 - The DS3231 generates a periodic alarm on its INT pin (GPIO21) to wake the MCU.  
 - Button wake is enabled via GPIO interrupts.  
 - The display is updated only when new data is available or upon user request; no continuous screen refresh occurs.
-- The device consumes the majority of its energy during the brief wake period (approximately 2 seconds at 50 mA). Deep sleep current is less than 20 µA. Therefore, reducing the wake interval (e.g., to 5 minutes) will proportionally extend battery life, while a shorter interval (e.g., 30 seconds) will reduce it.
+- The device consumes the majority of its energy during the brief wake period (approximately 400 ms at 50 mA). Deep sleep current is less than 20 µA (ESP32-S3 + DS3231 + BQ27441). Therefore, reducing the wake interval (e.g., to 5 minutes) will proportionally extend battery life, while a shorter interval (e.g., 30 seconds) will reduce it.
+- The DS3231 RTC is configured to generate an alarm **every minute** at second 0. This is hardcoded in `DS3231::SetAlarm1(0)` and cannot be changed without code modification.
+
+### Sleep Behavior
+
+The device implements two sleep levels:
+1. **Light sleep** - After 1 second of inactivity. Wakes from buttons, alarm, or 9-second timer.
+2. **Deep sleep** - After 10 seconds of inactivity. Wakes only from power button or RTC alarm.
 
 ### Logging and Storage
 

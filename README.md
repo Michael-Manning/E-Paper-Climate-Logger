@@ -102,7 +102,7 @@ For complete schematics and PCB layout, open the KiCad project in `PCB/templog_m
 The device is designed to run for weeks on a small battery:
 
 - In deep sleep, the ESP32‑S3 draws less than 20 µA. The DS3231 and BQ27441 remain active with negligible current.
-- The DS3231 alarm wakes the ESP32 at a configurable interval (default: 1 minute). The ESP32 wakes, logs a reading (about 2 seconds at 50 mA), updates the display, and returns to sleep.
+- The DS3231 alarm wakes the ESP32 at a configurable interval (default: 1 minute). The ESP32 wakes, logs a reading (about 400 ms at 50 mA), updates the display, and returns to sleep.
 - The LTC2954 provides a true on/off capability. When the device is off, battery drain is less than 1 µA.
 
 ## Limitations
