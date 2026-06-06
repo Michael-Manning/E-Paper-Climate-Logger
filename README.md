@@ -6,22 +6,20 @@ This project is an open-source, battery-powered temperature and humidity data lo
 
 Key features:
 
-- ESP32-S3 microcontroller with deep sleep capability
-- SHT45 temperature and humidity sensor
-- DS3231 real‑time clock with alarm wake‑up
-- 24LC512 external EEPROM for circular data logging
-- BQ27441 fuel gauge for accurate battery monitoring
-- BQ24075 power path and charging management
-- LTC2954 soft power button controller for true on/off
-- 1.54‑inch e‑paper display (SPI, GxEPD2 driver)
-- Custom 4‑layer PCB (3 cm × 4 cm)
-- Parametric 3D‑printed case (OpenSCAD)
+- ESP32-S3 with deep sleep & RTC timer to wake up
+- temperature and humidity sensor with external EEPROM for logging
+- accurate battery monitoring and charging management
+- power button controller to turn on/off
+- 1.54‑inch e‑paper display
+- Custom PCB & 3D‑printed case
 
 The entire project is open source, including hardware schematics, PCB layout, firmware, and enclosure CAD files. A detailed build video is available on YouTube: [E-Paper Climate Logger](https://www.youtube.com/watch?v=I44iGj7gLGA).
 
 ![photo-device-on](img/photo-device-on.jpg "")
 ![photo-enclosure](img/photo-enclosure.jpg "")
 ![photo-pcb](img/photo-pcb.jpg "")
+
+### Youtube video
 
 [![E-Paper Climate Logger](https://img.youtube.com/vi/I44iGj7gLGA/maxresdefault.jpg)](https://youtu.be/I44iGj7gLGA)
 
