@@ -1,4 +1,4 @@
-# E-Paper Climate Logger
+# Weathergotchi - an E-Paper Climate Logger
 
 ## About
 

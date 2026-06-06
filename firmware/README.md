@@ -1,4 +1,4 @@
-# E-Paper Climate Logger Firmware
+# Weathergotchi - an E-Paper Climate Logger firmware
 
 ## Overview
 
