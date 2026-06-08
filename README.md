@@ -101,8 +101,11 @@ The device is designed to run for over 1 week on a small battery:
 - The DS3231 alarm wakes the ESP32 at a configurable interval (default: 1 minute). The ESP32 wakes, logs a reading (about 400 ms at 50 mA), updates the display, and returns to sleep.
 - The LTC2954 provides a true on/off capability.
 
-## Limitations
+## Issues
+- **Battery accuracy issues**: In my testing, the reported battery state of charge is not accurate. I believe this is due to a misconfiguration BQ27441.
+- **Low battery issues**: In my testing, when the battery is near depleted (3.4V), it can enter an unrecoverable state in which it cannot be powered back on. This can only be fixed by disconnecting the battery, externally recharging it, and reconnecting it. I think this may be caused by the cheap batteries I have been using from Aliexpress.
 
+## Limitations
 - **Temperature accuracy during handling**: The ESP32 generates heat when active, which can affect the SHT45 reading. The firmware reads the sensor immediately upon wake to minimise this error. Prolonged menu browsing or holding the device will skew the ambient reading for several minutes.
 - **Display low‑temperature limit**: The e‑paper module is rated for operation above 0°C. Below freezing, the screen may not update reliably. Data logging continues in the background, and display functionality resumes when the temperature rises.
 - **No wireless connectivity**: This version does not include Bluetooth or Wi‑Fi data export to maximise battery life. Data can be viewed only on the device screen.
