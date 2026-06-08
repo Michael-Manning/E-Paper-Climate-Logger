@@ -2,14 +2,14 @@
 
 ## About
 
-This project is an open-source, battery-powered temperature and humidity data logger with an always-on e-paper display. It records ambient conditions over time, stores readings in non-volatile memory, and displays current data along with a history graph. The device is designed for low power consumption, achieving weeks of operation on a small Li‑Po battery.
+This project is an open-source, battery-powered temperature and humidity data logger with an always-on e-paper display. It records ambient conditions over time, stores readings in non-volatile memory, and displays current data along with a history graph. The device is designed for low power consumption, over 1 week of operation on a small Li‑Po battery.
 
 Key features:
 
 - ESP32-S3 with deep sleep & RTC timer to wake up
-- temperature and humidity sensor with external EEPROM for logging
-- accurate battery monitoring and charging management
-- power button controller to turn on/off
+- Temperature and humidity sensor with external EEPROM for logging
+- Accurate battery monitoring and charging management
+- Power button controller to turn on/off
 - 1.54‑inch e‑paper display
 - Custom PCB & 3D‑printed case
 
@@ -44,11 +44,11 @@ All hardware design files for the custom mainboard (`templog_mainboard`). This d
 
 - KiCad project files (`.kicad_sch`, `.kicad_pcb`, `.kicad_pro`)
 - Schematic sheets for power management and display driver
-- Custom component footprints and 3D models
+- Component footprints and 3D models
 - Datasheets for all major ICs (charger, fuel gauge, RTC, sensors, etc.)
 - Reference schematics from SparkFun and Waveshare
 
-To view or modify the PCB design, install KiCad 7 or later and open `templog_mainboard.kicad_pro`.
+To view or modify the PCB design, install KiCad 9 or later and open `templog_mainboard.kicad_pro`.
 
 ### Firmware
 
@@ -61,7 +61,7 @@ PlatformIO project for the ESP32‑S3 using the Arduino framework. It handles se
 - Assembled E-Paper Climate Logger PCB (or a hand‑soldered prototype – note that many components are small and may require reflow soldering)
 - 1.54‑inch e‑paper display (compatible with Waveshare pinout)
 - 3D‑printed case (files in `CAD/export/`)
-- Li‑Po battery (e.g., 450 mAh, single cell)
+- Li‑Po battery (e.g., 400 mAh, single cell)
 - USB‑C cable for charging and programming
 
 ### Building the Firmware
@@ -85,7 +85,7 @@ For detailed firmware documentation, including folder structure, driver details,
 
 ### Enclosure Assembly
 
-Print the STL files from `CAD/export/` using a high‑resolution FDM printer (0.1 mm layer height recommended). The case uses a snap‑fit design; no screws or glue are required. Insert the PCB and battery, then press the front and back halves together.
+Print the STL files from `CAD/export/` using a high‑resolution FDM printer (0.1 mm layer height recommended). The case uses M2 heat set inserts and M2 screws. Insert the PCB and battery, then screw the front and back halves together.
 
 ## Hardware Overview
 
@@ -97,17 +97,17 @@ For complete schematics and PCB layout, open the KiCad project in `PCB/templog_m
 
 ## Power Management and Low‑Power Operation
 
-The device is designed to run for weeks on a small battery:
+The device is designed to run for over 1 week on a small battery:
 
 - In deep sleep, the ESP32‑S3 draws less than 20 µA. The DS3231 and BQ27441 remain active with negligible current.
 - The DS3231 alarm wakes the ESP32 at a configurable interval (default: 1 minute). The ESP32 wakes, logs a reading (about 400 ms at 50 mA), updates the display, and returns to sleep.
-- The LTC2954 provides a true on/off capability. When the device is off, battery drain is less than 1 µA.
+- The LTC2954 provides a true on/off capability.
 
 ## Limitations
 
 - **Temperature accuracy during handling**: The ESP32 generates heat when active, which can affect the SHT45 reading. The firmware reads the sensor immediately upon wake to minimise this error. Prolonged menu browsing or holding the device will skew the ambient reading for several minutes.
 - **Display low‑temperature limit**: The e‑paper module is rated for operation above 0°C. Below freezing, the screen may not update reliably. Data logging continues in the background, and display functionality resumes when the temperature rises.
-- **No wireless connectivity**: This version does not include Bluetooth or Wi‑Fi data export to maximise battery life. Data can be viewed only on the device screen or retrieved via serial.
+- **No wireless connectivity**: This version does not include Bluetooth or Wi‑Fi data export to maximise battery life. Data can be viewed only on the device screen.
 
 ## Contributing
 
