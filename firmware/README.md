@@ -149,9 +149,7 @@ If you are building a variant of the hardware, update `pinout.h` to match your G
 
 ## Troubleshooting
 
-- **Device does not wake:** Check the DS3231 alarm configuration and GPIO21 connection.  
-- **E-paper shows garbage:** Verify SPI pins and reset sequence in `display.cpp`.  
-- **I2C communication fails:** Confirm pull-up resistors and address settings in each driver file.  
+- **Device does not power/stay on:** Ensure the battery is charged to at least 3.4 V and try disconnecting/reconnecting the battery  .
 - **Battery percentage inaccurate:** The BQ27441 requires a one-time capacity configuration; refer to the datasheet and adjust `BQ27441.cpp`.
 
 ---
