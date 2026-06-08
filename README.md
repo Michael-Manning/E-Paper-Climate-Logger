@@ -89,9 +89,7 @@ Print the STL files from `CAD/export/` using a high‑resolution FDM printer (0.
 
 ## Hardware Overview
 
-A simplified schematic of the main connections is shown below. All I2C peripherals (SHT45, DS3231, 24LC512, BQ27441) share the same bus. The e‑paper display is driven via SPI, and the LTC2954 soft power button controls the BQ24075 power path.
-
-![Simplified schematic](img/simple-schematic.png)
+All I2C peripherals (SHT45, DS3231, 24LC512, BQ27441) share the same bus. The e‑paper display is driven via SPI, and the LTC2954 soft power button controls system power-off via the BQ24075.
 
 For complete schematics and PCB layout, open the KiCad project in `PCB/templog_mainboard/`.
 
