@@ -337,11 +337,14 @@ void App::StandardDisplay(){
             d->drawBitmap(x1 + w + 3, 38, bitmaps::percent_symbol_16, 16, 16, black);
 
             d->drawBitmap(0, 58, bitmaps::clock, 17, 17, black);
-            char timebuf[12];
+            char timebuf[14];
+            bool approxTime = globalState->currentSettings.refreshInterval != RefreshInterval::_1Minute;
+            int timeOffset = 0;
+            if(approxTime){ timebuf[0] = '~'; timeOffset = 1; }
             if(globalState->currentSettings.timeFormat == TimeFormat::_12Hour)
-                GetTimeString12(timebuf, currentTime);
+                GetTimeString12(timebuf + timeOffset, currentTime);
             else
-                GetTimeString24(timebuf, currentTime);
+                GetTimeString24(timebuf + timeOffset, currentTime);
             disp->print(20, 73, timebuf);
         }
 
@@ -918,6 +921,22 @@ void App::SettingsMenu(){
                 break;
         }
 
+        disp->print(0, 110, "Refresh:");
+        switch (globalState->currentSettings.refreshInterval)
+        {
+            case RefreshInterval::_1Minute:
+                disp->print(160, 110, "1m");
+                break;
+            case RefreshInterval::_5Minutes:
+                disp->print(160, 110, "5m");
+                break;
+            case RefreshInterval::_10Minutes:
+                disp->print(160, 110, "10m");
+                break;
+            default:
+                break;
+        }
+
         d->drawRect(140, 35 + selectedSetting * 20, 58, 20, black);
 
         disp->EndRefresh();
@@ -959,6 +978,23 @@ void App::SettingsMenu(){
                 break;
             }
         }
+        else if(selectedSetting == 3)
+        {
+            switch (globalState->currentSettings.refreshInterval)
+            {
+            case RefreshInterval::_1Minute:
+                globalState->currentSettings.refreshInterval = RefreshInterval::_5Minutes;
+                break;
+            case RefreshInterval::_5Minutes:
+                globalState->currentSettings.refreshInterval = RefreshInterval::_10Minutes;
+                break;
+            case RefreshInterval::_10Minutes:
+                globalState->currentSettings.refreshInterval = RefreshInterval::_1Minute;
+                break;
+            default:
+                break;
+            }
+        }
 
         eeprom->WriteSettings(globalState->currentSettings);
 
@@ -966,7 +1002,7 @@ void App::SettingsMenu(){
     }
     else if(getBtn2MultiPressConfirmed() == 1){
         selectedSetting++;
-        selectedSetting %= 3;
+        selectedSetting %= 4;
         setRedraw();
     }
     else if(getBtn2MultiPressimmediate() == 2){

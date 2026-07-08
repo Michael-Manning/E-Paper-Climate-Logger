@@ -326,7 +326,17 @@ void setup() {
                     if(!displayingColdWarningScreen)
                         loadClimateDate();  
 
-                    doAlarmRoutine(!displayingColdWarningScreen);
+                    bool shouldUpdateDisplay = !displayingColdWarningScreen;
+                    if(shouldUpdateDisplay){
+                        uint8_t intervalMinutes = 1;
+                        switch(globalState.currentSettings.refreshInterval){
+                            case RefreshInterval::_5Minutes:  intervalMinutes = 5;  break;
+                            case RefreshInterval::_10Minutes: intervalMinutes = 10; break;
+                            default: break;
+                        }
+                        shouldUpdateDisplay = (globalState.currentTime.Minute % intervalMinutes == 0);
+                    }
+                    doAlarmRoutine(shouldUpdateDisplay);
                     
                     // unreachable code due to deep sleep
                     return;

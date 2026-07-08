@@ -82,11 +82,17 @@ enum class GraphRange : uint8_t{
     _30Minutes = 2,
     _60Minutes = 3,
 };
+enum class RefreshInterval : uint8_t{
+    _1Minute   = 0,
+    _5Minutes  = 1,
+    _10Minutes = 2,
+};
 
 struct Settings{
-    TemperatureFormat tempFormat : 1;
-    TimeFormat timeFormat        : 1;
-    GraphRange graphRange        : 4;
+    TemperatureFormat tempFormat        : 1;
+    TimeFormat timeFormat               : 1;
+    GraphRange graphRange               : 4;
+    RefreshInterval refreshInterval     : 2;
 };
 static_assert(sizeof(Settings) < flash::pageSize);
 
@@ -94,7 +100,8 @@ static inline Settings DefaultSettings(){
     return Settings{
         .tempFormat = TemperatureFormat::Celcius,
         .timeFormat = TimeFormat::_12Hour,
-        .graphRange = GraphRange::_60Minutes
+        .graphRange = GraphRange::_60Minutes,
+        .refreshInterval = RefreshInterval::_1Minute
     };
 };
 
