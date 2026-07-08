@@ -154,6 +154,7 @@ void doAlarmRoutine(bool updateDisplay){
 void setup() {
     configurePins();
     power::LatchOnOffController();
+    setCpuFrequencyMhz(80);
 
     esp_sleep_wakeup_cause_t wakeupCause = esp_sleep_get_wakeup_cause();
     bool wasHibernating = wakeupCause != ESP_SLEEP_WAKEUP_UNDEFINED;
@@ -260,7 +261,7 @@ void setup() {
                     globalState.currentHeader.shutDownReason = ShutDownReason::FirmwareUpdate;
                     eeprom.WriteSettings(DefaultSettings());
                 }
-                else if(globalState.currentHeader.shutDownReason == ShutDownReason::Unplanned){
+                else if(globalState.currentHeader.shutDownReason == ShutDownReason::Unplanned || globalState.currentHeader.shutDownReason == ShutDownReason::LowBattery){
                     logl("Last EEPROM header indicates unplanned shutdown");
                     app.setState(State::InvalidStateNotice);
                     globalState.currentHeader = FreshHeader();
