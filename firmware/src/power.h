@@ -11,7 +11,8 @@ namespace power{
 
     constexpr uint16_t BatteryCapacity_mah = 400;
     constexpr uint16_t BatteryTerminateVoltage_mv = 3300;
-    constexpr uint16_t TaperCurrent_ma = 12; // VERIFY
+    // 10% of ISET-programmed charge current: 890 / 5100Ω = 174.5mA → taper = 17.5mA
+    constexpr uint16_t TaperCurrent_ma = 17;
 
     bool USBConnected();
 
@@ -25,4 +26,5 @@ namespace power{
 
     bool ConfigureFuelGauge();
 
+    bool BatteryReconnected();
 }

@@ -132,4 +132,8 @@ namespace power{
       
       return success;
    }
+   bool BatteryReconnected()
+   {
+      return lipo.itporFlag();
+   }
 }

@@ -36,6 +36,7 @@ The Arduino framework and ESP32-S3 board definition are also handled automatical
    pio device monitor
    ```
 
+Note: you may need to downgrade click to version 8.1.8 in PlatformIO's virtual environment in order to build with the platform version selected by platformio.ini.
 
 ## Folder Structure
 

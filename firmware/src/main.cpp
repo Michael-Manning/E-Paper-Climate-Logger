@@ -188,11 +188,11 @@ void setup() {
     configureRTC();
     _clock.ClearAlarm1();
         
-    // uncomment if a fresh board
-    // power::ConfigureFuelGauge();
     PowerStatus ps;
     power::GetPowerStatus(ps);
 
+    if (power::BatteryReconnected())
+        power::ConfigureFuelGauge();
 
     globalState.currentTime = _clock.Read();
 
