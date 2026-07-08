@@ -217,7 +217,7 @@ void setup() {
         if(power::USBConnected()){
             delay(200);
         }
-        else if(ps.batteryVoltage <= Constants::lowBatteryThreshold_V){
+        else if(ps.batteryVoltage <= Constants::lowBatteryThreshold_mv / 1000.0f){
             globalState.currentHeader.shutDownReason = ShutDownReason::LowBattery;
             eeprom.UpdateStatusHeader(globalState.currentHeader);
             

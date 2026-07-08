@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Constants.h"
+
 struct PowerStatus{
    bool Charging;
    float batteryVoltage = 0.0f;
@@ -10,7 +12,6 @@ struct PowerStatus{
 namespace power{
 
     constexpr uint16_t BatteryCapacity_mah = 400;
-    constexpr uint16_t BatteryTerminateVoltage_mv = 3300;
     // 10% of ISET-programmed charge current: 890 / 5100Ω = 174.5mA → taper = 17.5mA
     constexpr uint16_t TaperCurrent_ma = 17;
 

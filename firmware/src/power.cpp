@@ -121,7 +121,7 @@ namespace power{
             Terminate Voltage should be set to the minimum operating voltage of your system. This is the target
             where the gauge typically reports 0% capacity
       */
-      success &= lipo.setTerminateVoltage(BatteryTerminateVoltage_mv);
+      success &= lipo.setTerminateVoltage(Constants::lowBatteryThreshold_mv);
 
       /*
             Taper Rate = Design Capacity / (0.1 * Taper Current)
