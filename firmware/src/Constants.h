@@ -16,4 +16,7 @@ namespace Constants
 
     // how many partial refreshes can happen before forcing a full refresh (excluding menu interaction)
     constexpr int maxPartialFreshres = 5;
+
+    constexpr int firmwareVersionMajor = 1;
+    constexpr int firmwareVersionMinor = 1;
 } 

@@ -565,6 +565,10 @@ void App::DebugMenu(){
                 sprintf(dwakeupBuf, "power rst");
             }
 
+            disp->printf(0, 180, "Dwakeup: %s", dwakeupBuf);
+
+            // light sleep wake up reason disabled in favor of showing firmware version
+            # if false
             char lwakeupBuf[32];
             if(globalState->lastLightWakeupCause == LightWakeupCause::MenuButton){
                 sprintf(lwakeupBuf, "menu btn");
@@ -588,9 +592,13 @@ void App::DebugMenu(){
                 sprintf(lwakeupBuf, "? ext1");
             }
             
-
-            disp->printf(0, 180, "Dwakeup: %s", dwakeupBuf);
             disp->printf(0, 199, "Lwakeup: %s", lwakeupBuf);
+            #else
+            
+            disp->printf(0, 199, "FW version: %d.%d", Constants::firmwareVersionMajor, Constants::firmwareVersionMinor);
+
+            #endif
+
         }
         
         disp->EndRefresh();
@@ -1024,6 +1032,33 @@ void App::WelcomeScreen(){
     }
 
     if(getBtn1Down() || getBtn2Down()){
+        setState(State::StandardDisplay);
+        globalState->shouldGoToSleep = true;
+    }
+}
+
+void App::UpdateComplete(){
+    auto d = disp->d;
+
+    if(shouldRedraw()){
+        updateCompleteEntryTime_ms = (uint64_t)esp_timer_get_time() / 1000ULL;
+
+        disp->StartRefresh();
+        d->setRotation(2);
+        d->setFont(&FreeMonoBold12pt7b);
+        d->fillScreen(white);
+        d->setCursor(0, 90);
+        d->print("Update\nComplete!");
+        disp->EndRefresh();
+    }
+
+    bool timeout = updateCompleteEntryTime_ms != 0 &&
+                   ((uint64_t)esp_timer_get_time() / 1000ULL - updateCompleteEntryTime_ms) > 60000ULL;
+
+    if(getBtn1Down() || getBtn2Down() || timeout){
+        // Clear the FirmwareUpdate reason so it is not shown again on the next boot.
+        globalState->currentHeader.shutDownReason = ShutDownReason::Hibernate;
+        eeprom->UpdateStatusHeader(globalState->currentHeader);
         setState(State::StandardDisplay);
         globalState->shouldGoToSleep = true;
     }

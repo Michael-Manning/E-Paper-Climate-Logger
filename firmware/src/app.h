@@ -54,6 +54,7 @@ enum class State {
    ChargingScreen,
    SettingsMenu,   
    WelcomeScreen,   
+   UpdateComplete,
    Nothing,
    //ChargingScreen,
    Count
@@ -76,6 +77,7 @@ public:
             [this](){ ChargingScreen(); },
             [this](){ SettingsMenu(); },
             [this](){ WelcomeScreen(); },
+            [this](){ UpdateComplete(); },
             [this](){  },
         };
     }
@@ -127,6 +129,7 @@ private:
     void ChargingScreen();
     void SettingsMenu();
     void WelcomeScreen();
+    void UpdateComplete();
 
     void drawGraph(int left, int right, int bottom, int top, const int16_t* dataY, int dataCount, int16_t* min, int16_t* max);
 
@@ -140,5 +143,6 @@ private:
     int timeSetStage = 0;
     int timeSetHour = 0;
     int timeSetMinute = 0;
+    uint64_t updateCompleteEntryTime_ms = 0;
 
 };
