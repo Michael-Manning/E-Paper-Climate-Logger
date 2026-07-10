@@ -4,7 +4,7 @@
 
 struct PowerStatus{
    bool Charging;
-   float batteryVoltage = 0.0f;
+   int batteryVoltage_mv = 0.0f;
    int batteryCapacity_percentage = 0;
    int averageCurrent_ma =0;
 };

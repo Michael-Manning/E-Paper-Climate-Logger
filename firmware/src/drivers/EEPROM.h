@@ -50,8 +50,9 @@ struct StatusHeader{
    uint8_t index                   : 8 = 0;
    ShutDownReason shutDownReason   : 3;
    DisplayType selectedDisplayType : 2; // unused
-   bool displayCold                : 1;
-   bool displayNightMode           : 2;
+   bool displayingCold                : 1;
+   bool displayingNightMode           : 1;
+   bool displayingLowBattery          : 1;
    uint8_t partialRefreshCount     : 8 = 0;
    DisplayRefreshState refreshState: 8;
    uint16_t dataStart              : 16;
@@ -64,8 +65,9 @@ static inline StatusHeader FreshHeader(){
     return StatusHeader{
         .shutDownReason = ShutDownReason::Unplanned,
         .selectedDisplayType = DisplayType::Temp_Humi_Time,
-        .displayCold = false,
-        .displayNightMode = false,
+        .displayingCold = false,
+        .displayingNightMode = false,
+        .displayingLowBattery = false,
         .partialRefreshCount = 0,   
         .refreshState = DisplayRefreshState::Fresh,
         .dataStart = 0,
@@ -93,8 +95,10 @@ enum class RefreshInterval : uint8_t{
 struct Settings{
     TemperatureFormat tempFormat        : 1;
     TimeFormat timeFormat               : 1;
-    GraphRange graphRange               : 4;
+    GraphRange graphRange               : 2;
     RefreshInterval refreshInterval     : 2;
+    bool nightScreen                    : 1;
+    bool reserved                       : 1; // unused
 };
 static_assert(sizeof(Settings) < flash::pageSize);
 
@@ -102,8 +106,9 @@ static inline Settings DefaultSettings(){
     return Settings{
         .tempFormat = TemperatureFormat::Celcius,
         .timeFormat = TimeFormat::_12Hour,
-        .graphRange = GraphRange::_60Minutes,
-        .refreshInterval = RefreshInterval::_1Minute
+        .graphRange = GraphRange::_30Minutes,
+        .refreshInterval = RefreshInterval::_1Minute,
+        .nightScreen = false
     };
 };
 

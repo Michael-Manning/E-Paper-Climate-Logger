@@ -32,6 +32,9 @@ unsigned long time_now_s;
 #define COLORED 0
 #define UNCOLORED 1
 
+constexpr uint32_t _lightSleepInactivityThreshold_ms = 1000;         // 1s
+constexpr uint32_t _deepSleepInactivityThreshold_ms = 10000;         // 10s
+constexpr uint32_t _extendedDeepSleepInactivityThreshold_ms = 30000; // 30s
 
 using namespace plt;
 
@@ -49,8 +52,23 @@ uint32_t deepSleepInactivityTimer_ms = 0;
 uint32_t programStartTimer_ms = 0;
 uint32_t clockReadTimer_ms = 0;
 
-constexpr uint32_t lightSleepInactivity_ms = 1000;
-constexpr uint32_t deepSleepInactivity_ms = 10000;
+// Indicates the last wake up was specifically caused by pressing the power button while the night screen was shown.
+// This is needed to prevent the menu from being shown before the standard display.
+bool manualWakeUpFromNightScreen = false;
+
+
+constexpr uint32_t GetLightSleepInactivityThreshold_ms()
+{
+    return _lightSleepInactivityThreshold_ms;
+}
+uint32_t GetDeepSleepInactivityThreshold_ms()
+{
+    // When the view data screen is open, use a longer timeout.
+    if(app.getState() == State::ViewData)
+        return _extendedDeepSleepInactivityThreshold_ms;
+    return _deepSleepInactivityThreshold_ms;
+}
+
 
 }  // namespace
 
@@ -125,7 +143,7 @@ void loadClimateDate(){
 
 void preHibernateTasks(){
     
-    if(globalState.currentHeader.displayCold)
+    if(globalState.currentHeader.displayingCold)
         _display.ShutDown();
     else
         _display.Hibernate();
@@ -140,12 +158,21 @@ void preHibernateTasks(){
     else{
         globalState.currentHeader.shutDownReason = ShutDownReason::Hibernate;
     }
+    
     eeprom.UpdateStatusHeader(globalState.currentHeader);
 
     if(debugLogUSBConnected){
         logl("going back to sleep...");
         delay(200);
     }
+}
+
+static bool isNightHours(const DateTime& t){
+    // nightModeHourStart > nightModeHourEnd means the range wraps midnight (e.g. 23:00 - 06:00)
+    if(Constants::nightModeHourStart > Constants::nightModeHourEnd)
+        return t.Hour >= Constants::nightModeHourStart || t.Hour < Constants::nightModeHourEnd;
+    else
+        return t.Hour >= Constants::nightModeHourStart && t.Hour < Constants::nightModeHourEnd;
 }
 
 // when woken up by alarm, just quickly update then screen then go back to sleep;
@@ -169,11 +196,15 @@ void setup() {
     // climate is priority because the MCU will heat up the board the longer it is on
     for (int i = 0; i < 5; i++)
     {
+        // idk why, but sometimes it takes more than one try to get valid data from the SHT45
         if(globalState.lastClimateReading.humidity_raw != 0.0f)
             break;  
         getClimate(globalState.lastClimateReading); 
     }
     
+    // display is near lower limit of operational temperature
+    bool displayCold = globalState.lastClimateReading.Temperature_c() < Constants::lowTemperatureDisplayThreshold_C;
+
     Serial.begin();
     debugLogUSBConnected = power::USBConnected() && LoggerEnabled;
 
@@ -221,22 +252,44 @@ void setup() {
         
         auto res = eeprom.GetLastStatusHeader(globalState.currentHeader);
 
-        if(power::USBConnected() == false && (ps.batteryVoltage <= Constants::lowBatteryThreshold_mv / 1000.0f)){
+        // handle dead battery
+        if(power::USBConnected() == false && (ps.batteryVoltage_mv <= Constants::lowBatteryThreshold_mv)){
             globalState.currentHeader.shutDownReason = ShutDownReason::LowBattery;
-            eeprom.UpdateStatusHeader(globalState.currentHeader);
-            
-            _display.ForceFullNextRefresh();
-            _display.StartRefresh();
-            _display.d->setRotation(1);
-            _display.d->fillScreen(GxEPD_WHITE);
-            _display.d->drawBitmap(0, 0, bitmaps::dead_battery_screen, 200, 200, GxEPD_BLACK);
-            _display.EndRefresh();
+                        
+            // if the device dies while it's already cold, there's nothing we can do. Just shut down.
+            // Don't bother refreshing the screen if EEPROM indicates it's already being shown.
+            if(displayCold == false && globalState.currentHeader.displayingLowBattery == false)
+            {  
+                _display.Init(shouldFullResetDisplay, &globalState.currentHeader);
+                
+                _display.ForceFullNextRefresh();
+                _display.StartRefresh();
+                _display.d->setRotation(2);
+                _display.d->fillScreen(GxEPD_WHITE);
+                _display.d->drawBitmap(0, 0, bitmaps::dead_battery_screen, 200, 200, GxEPD_BLACK);
+                _display.EndRefresh();
 
+                globalState.currentHeader.displayingLowBattery = true;
+                globalState.currentHeader.displayingCold = false;
+                globalState.currentHeader.displayingNightMode = false;
+
+                eeprom.StartNextStatusHeader(globalState.currentHeader);
+                eeprom.UpdateStatusHeader(globalState.currentHeader);
+                
+                delay(50);
+            }
+            
+
+            _display.ShutDown();
             power::ShutdownSystem();
+
+            // unreachable code
         }
+        globalState.currentHeader.displayingLowBattery = false;
 
         if(res == EEPROM::HeaderResult::ReadError){
             logl("failed to read EEPROM!");
+            // ??? 
         }
         else{
             if(res == EEPROM::HeaderResult::NoHeadersFound){
@@ -302,11 +355,10 @@ void setup() {
             eeprom.AddClimateSample(globalState.currentHeader, globalState.lastClimateReading);
         }
 
-        bool displayCold = globalState.lastClimateReading.Temperature_c() < Constants::lowTemperatureDisplayThreshold_C;
         bool displayingColdWarningScreen = false; // previus power cycle indicates the device screen has been too cold for some time already.
         if(displayCold){
-            if(globalState.currentHeader.displayCold == false){
-                globalState.currentHeader.displayCold = true;
+            if(globalState.currentHeader.displayingCold == false){
+                globalState.currentHeader.displayingCold = true;
                 app.setState(State::LowTempWarning);
             }
             else{
@@ -315,8 +367,8 @@ void setup() {
         }
         else {
             // reset the header flag once it warms back up
-            if(globalState.currentHeader.displayCold == true){
-                globalState.currentHeader.displayCold = false;
+            if(globalState.currentHeader.displayingCold == true){
+                globalState.currentHeader.displayingCold = false;
             }
         }
 
@@ -333,6 +385,24 @@ void setup() {
                     
                     if(!displayingColdWarningScreen)
                         loadClimateDate();  
+
+                    // if temperature dropped while night mode was active, clear the night mode flag
+                    if(displayCold && globalState.currentHeader.displayingNightMode)
+                        globalState.currentHeader.displayingNightMode = false;
+
+                    // night screen: suppress display updates during configured night hours
+                    if(!displayCold && globalState.currentSettings.nightScreen && isNightHours(globalState.currentTime)){
+                        if(globalState.currentHeader.displayingNightMode){
+                            // night screen already showing — skip display update, just record data and sleep
+                            doAlarmRoutine(false);
+                        } else {
+                            // first entry into night mode — show night screen and persist the flag
+                            app.setState(State::NightMode);
+                            globalState.currentHeader.displayingNightMode = true;
+                            doAlarmRoutine(true);
+                        }
+                        // unreachable: doAlarmRoutine calls HibernateSystem
+                    }
 
                     bool shouldUpdateDisplay = !displayingColdWarningScreen;
                     if(shouldUpdateDisplay){
@@ -362,6 +432,12 @@ void setup() {
                 globalState.lastDeepWakeupCause = DeepWakeupCause::ButtonFromHibernate;
                 globalState.sleepIndicator = false;
                 logl("woke up due to button press");
+                // user pressed button while night screen was showing, clear the flag so
+                // standardDisplay is shown and normal operation resumes until next alarm wake up inactivity sleep
+
+                if(globalState.currentHeader.displayingNightMode)
+                    manualWakeUpFromNightScreen = true;
+                globalState.currentHeader.displayingNightMode = false;
             }
         }
         else{
@@ -459,7 +535,7 @@ void doLightSleep(){
         ESP_EXT1_WAKEUP_ANY_LOW);
 
     // Configure timer wakeup after deep sleep timeout to go into a deeper sleep state
-    esp_sleep_enable_timer_wakeup((deepSleepInactivity_ms - lightSleepInactivity_ms) * 1000); // in microseconds
+    esp_sleep_enable_timer_wakeup((GetDeepSleepInactivityThreshold_ms() - GetLightSleepInactivityThreshold_ms()) * 1000); // in microseconds
 
     if(power::USBConnected()){
         logl("Entering light sleep...");
@@ -554,7 +630,10 @@ void loop() {
         // It's possible to wake up the device via button press and then release it quickly enough before it gets
         // registered by the button state manager. So if we just woke up and we know the button was just pressed according
         // to the wakeup source, we should still perform the button action (which is to enter the main menu)
-        app.setState(State::MainMenu);
+
+        // if the device was showing the night screen, we actually want to show the standard diplay instead of skipping straight to the menu.
+        if(manualWakeUpFromNightScreen == false)
+            app.setState(State::MainMenu);
     }
 
     if(getBtn1() || getBtn2()){ 
@@ -612,6 +691,7 @@ void loop() {
 
         for (int i = 0; i < 5; i++)
         {
+            // idk why, but sometimes it takes more than one try to get valid data from the SHT45
             if(globalState.lastClimateReading.humidity_raw != 0.0f)
                 break;  
             getClimate(globalState.lastClimateReading); 
@@ -653,10 +733,21 @@ void loop() {
     // deep sleep due to inactivity
     if(
         !power::USBConnected() && !shuttingDown && 
-        (millis() - deepSleepInactivityTimer_ms > deepSleepInactivity_ms || globalState.shouldGoToSleep))
+        (millis() - deepSleepInactivityTimer_ms > GetDeepSleepInactivityThreshold_ms() || globalState.shouldGoToSleep))
     {
         _display.EnableFullRefresh();
         globalState.sleepIndicator = true;
+
+        // bool displayColdNow = globalState.lastClimateReading.Temperature_c() < Constants::lowTemperatureDisplayThreshold_C;
+        // if(!displayColdNow && globalState.currentSettings.nightScreen && isNightHours(globalState.currentTime)){
+        //     // re-enter night mode when sleeping due to inactivity during night hours
+        //     app.setState(State::NightMode);
+        //     globalState.currentHeader.displayNightMode = true;
+        // } else {
+        //     globalState.currentHeader.displayNightMode = false;
+        //     app.setState(State::StandardDisplay);
+        // }
+
         app.setState(State::StandardDisplay);
         app.handle(globalState);
         preHibernateTasks();
@@ -666,7 +757,7 @@ void loop() {
     }
 
     // light sleep due to inactivity
-    if(!shuttingDown && millis() - lightSleepInactivityTimer_ms > lightSleepInactivity_ms){
+    if(!shuttingDown && millis() - lightSleepInactivityTimer_ms > GetLightSleepInactivityThreshold_ms()){
         _display.Hibernate();
         if(!power::USBConnected())
             doLightSleep();

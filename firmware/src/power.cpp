@@ -32,7 +32,7 @@ namespace power
       status.Charging = plt::getPinLevel(pins::chargeStatus) == false && c >= 10;
 
       status.batteryCapacity_percentage = (int)lipo.soc();
-      status.batteryVoltage = (float)lipo.voltage() / 1000.0f;
+      status.batteryVoltage_mv = (int)lipo.voltage();
       status.averageCurrent_ma = c;
       // unsigned int fullCapacity = lipo.capacity(FULL); // Read full capacity (mAh)
       // unsigned int capacity = lipo.capacity(REMAIN);   // Read remaining capacity (mAh)

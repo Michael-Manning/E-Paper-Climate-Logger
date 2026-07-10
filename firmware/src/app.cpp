@@ -542,7 +542,7 @@ void App::DebugMenu()
         {
             disp->printf(0, 40, "USB: %s", (int)power::USBConnected() ? "yes" : "no");
             disp->printf(100, 40, "CHG: %s", (int)ps.Charging ? "yes" : "no");
-            disp->printf(0, 60, "voltage: %.3fV", ps.batteryVoltage);
+            disp->printf(0, 60, "voltage: %.3fV", (float)ps.batteryVoltage_mv / 1000.0f);
             disp->printf(0, 80, "current: %dmA", (int)ps.averageCurrent_ma);
             disp->printf(0, 100, "Battery: %d%%", (int)ps.batteryCapacity_percentage);
 
@@ -775,9 +775,6 @@ void App::ViewData()
             setRedraw();
         }
     }
-
-    // Never timeout while viewing data
-    resetInactivity();
 }
 
 void App::LowTempWarning()
@@ -967,7 +964,7 @@ void App::ChargingScreen()
         power::GetPowerStatus(ps);
 
         int currentPct = ps.batteryCapacity_percentage;
-        float currentVoltage = ps.batteryVoltage;
+        float currentVoltage = (float)ps.batteryVoltage_mv / 1000.0f;
 
         bool firstShow = (chargingScreenBatteryPct == -1);
         bool valuesChanged = firstShow ||
@@ -1069,6 +1066,9 @@ void App::SettingsMenu()
                 break;
         }
 
+        disp->print(0, 130, "Night screen:");
+        disp->print(160, 130, globalState->currentSettings.nightScreen ? "On" : "Off");
+
         d->drawRect(140, 35 + selectedSetting * 20, 58, 20, black);
 
         disp->EndRefresh();
@@ -1127,6 +1127,10 @@ void App::SettingsMenu()
                 break;
             }
         }
+        else if(selectedSetting == 4)
+        {
+            globalState->currentSettings.nightScreen = !globalState->currentSettings.nightScreen;
+        }
 
         eeprom->WriteSettings(globalState->currentSettings);
 
@@ -1134,7 +1138,7 @@ void App::SettingsMenu()
     }
     else if(getBtn2MultiPressConfirmed() == 1){
         selectedSetting++;
-        selectedSetting %= 4;
+        selectedSetting %= 5;
         setRedraw();
     }
     else if(getBtn2MultiPressimmediate() == 2){
@@ -1215,7 +1219,7 @@ void App::NightMode()
         disp->StartRefresh();
         d->setRotation(2);
         d->fillScreen(white);
-        d->drawBitmap(0, 0, bitmaps::power_off_screen, 200, 200, black);
+        d->drawBitmap(0, 0, bitmaps::night_mode_screen, 200, 200, black);
         disp->EndRefresh();
 
         // preHibernateTasks() will handle hibernation
