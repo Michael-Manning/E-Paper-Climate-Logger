@@ -17,6 +17,8 @@ namespace power{
 
     bool USBConnected();
 
+    bool ChargeStatus();
+
     bool GetPowerStatus(PowerStatus& status);
 
     void HibernateSystem();

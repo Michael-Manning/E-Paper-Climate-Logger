@@ -16,7 +16,8 @@
 #include <Fonts/FreeMonoBold24pt7b.h>
 
 
-namespace{
+namespace
+{
     constexpr uint16_t black = GxEPD_BLACK;
     constexpr uint16_t white = GxEPD_WHITE;
     constexpr int dispw = 199;
@@ -25,7 +26,8 @@ namespace{
     std::array<int16_t, flash::dataCapacity> rawTemperatureBuffer;
 }
 
-void App::handle(const GlobalState& globalState) {
+void App::handle(const GlobalState& globalState) 
+{
       this->currentTime = globalState.currentTime;
       handlers[static_cast<size_t>(currentState)](); 
 }
@@ -99,7 +101,8 @@ static inline int mapY_to_screen(int v, int ymin, int height, int bottom, int yr
 }
 
 // y coordinates including bottom,top are from physical bottom of the screen
-void App::drawGraph(int left, int right, int bottom, int top, const int16_t* dataY, int dataCount, int16_t* min, int16_t* max){
+void App::drawGraph(int left, int right, int bottom, int top, const int16_t* dataY, int dataCount, int16_t* min, int16_t* max)
+{
     auto d = disp->d;
     uint32_t timeStamp = micros();
     
@@ -231,7 +234,8 @@ void App::drawGraph(int left, int right, int bottom, int top, const int16_t* dat
     logf("graph render: %dus\n", micros() - timeStamp);
 }
 
-void App::StandardDisplay(){
+void App::StandardDisplay()
+{
    auto d = disp->d;
 
     if(shouldRedraw()){
@@ -391,7 +395,8 @@ void App::StandardDisplay(){
     }
 }
 
-void App::MainMenu(){
+void App::MainMenu()
+{
     auto d = disp->d;
 
     const char* options[] = {
@@ -488,7 +493,8 @@ void App::ShutDownScreen()
     }
 }
 
-void App::InvalidStateNotice(){
+void App::InvalidStateNotice()
+{
     auto d = disp->d;
 
     if(shouldRedraw()){
@@ -508,7 +514,8 @@ void App::InvalidStateNotice(){
     }
 }
 
-void App::DebugMenu(){
+void App::DebugMenu()
+{
     auto d = disp->d;
 
     if(shouldRedraw()){ 
@@ -615,7 +622,8 @@ void App::DebugMenu(){
 
 std::array<ClimateSample, flash::dataCapacity> climateHistory2;
 
-void App::ViewData(){
+void App::ViewData()
+{
         auto d = disp->d;
 
     if(shouldRedraw()){ 
@@ -672,7 +680,8 @@ void App::ViewData(){
     resetInactivity();
 }
 
-void App::LowTempWarning(){
+void App::LowTempWarning()
+{
     
     auto d = disp->d;
 
@@ -708,7 +717,8 @@ void App::LowTempWarning(){
     }
 }
 
-void App::TimeSet(){
+void App::TimeSet()
+{
     auto d = disp->d;
 
     
@@ -846,7 +856,8 @@ void App::TimeSet(){
 
 }
 
-void App::ChargingScreen(){
+void App::ChargingScreen()
+{
     
     auto d = disp->d;
 
@@ -878,7 +889,8 @@ void App::ChargingScreen(){
     }
 }
 
-void App::SettingsMenu(){
+void App::SettingsMenu()
+{
  auto d = disp->d;
 
     if(shouldRedraw()){ 
@@ -1019,7 +1031,8 @@ void App::SettingsMenu(){
     }
 }
 
-void App::WelcomeScreen(){
+void App::WelcomeScreen()
+{
     auto d = disp->d;
 
     if(shouldRedraw()){ 
@@ -1037,7 +1050,23 @@ void App::WelcomeScreen(){
     }
 }
 
-void App::UpdateComplete(){
+void App::DownloadingUpdate()
+{
+    auto d = disp->d;
+
+    if(shouldRedraw()){ 
+        disp->StartRefresh();
+        d->setRotation(2);
+        d->setFont(&FreeMonoBold12pt7b);
+        d->fillScreen(white);
+        d->setCursor(0, 90);
+        d->print("downloading\nfirmware...");
+        disp->EndRefresh();
+    }
+}
+
+void App::UpdateComplete()
+{
     auto d = disp->d;
 
     if(shouldRedraw()){

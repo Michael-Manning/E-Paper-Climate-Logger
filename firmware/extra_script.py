@@ -27,28 +27,35 @@ def before_upload(source, target, env):
         ser.port = port
         ser.baudrate = 115200
         ser.timeout = 1
-        ser.setDTR(False)   # keep DTR de-asserted so opening the port does not reset the device
+
+        # prevent ESP32 reset when opening serial port
+        ser.dtr = False
+        ser.rts = False
+
         ser.open()
         time.sleep(1.5)     # allow the device to finish any pending operation
+        print("Sending pre-upload message to device...")
         ser.write(b'\xC1')
         ser.flush()
+        time.sleep(0.2)     # ensure the byte clears into the device's FIFO
+
 
         # Wait for the device to acknowledge. The firmware emits this line only after
         # EndRefresh() completes, so receiving it guarantees both the EEPROM write and
-        # the display update are fully done. USB no longer suspends during the refresh
-        # (displayBusyCallback skips light sleep when USB is connected), so the port
-        # can safely stay open while we wait.
+        # the display update are fully done. 
+
         print("Waiting for device to acknowledge...")
         deadline = time.time() + 6.0
         while time.time() < deadline:
-            if b"Update notification received" in ser.readline():
+            if b"ack" in ser.readline():
                 print(f"Device acknowledged. Proceeding with upload.")
                 break
         else:
             print("Timeout waiting for acknowledgment. Proceeding anyway.")
 
-        ser.setDTR(False)   # keep DTR low; asserting it resets the device
         ser.close()
+        time.sleep(2.0)
+
     except Exception as e:
         print(f"Could not send pre-upload message: {e}")
 

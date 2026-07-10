@@ -32,9 +32,6 @@ unsigned long time_now_s;
 #define COLORED 0
 #define UNCOLORED 1
 
-// Persists across firmware-update resets. esptool writes only flash, not RTC SRAM.
-RTC_DATA_ATTR static uint32_t g_fwUpdateMagic = 0;
-constexpr uint32_t FW_UPDATE_MAGIC = 0x46555044UL; // 'F','U','P','D'
 
 using namespace plt;
 
@@ -224,15 +221,6 @@ void setup() {
         
         auto res = eeprom.GetLastStatusHeader(globalState.currentHeader);
 
-        // If the pre-upload script raced with the reset and EEPROM still shows Unplanned,
-        // the RTC magic (set by pollUSB before the reset) lets us recover correctly.
-        if(g_fwUpdateMagic == FW_UPDATE_MAGIC){
-            if(res == EEPROM::HeaderResult::Success && globalState.currentHeader.shutDownReason == ShutDownReason::Unplanned){
-                globalState.currentHeader.shutDownReason = ShutDownReason::FirmwareUpdate;
-            }
-            g_fwUpdateMagic = 0;
-        }
-
         if(power::USBConnected() == false && (ps.batteryVoltage <= Constants::lowBatteryThreshold_mv / 1000.0f)){
             globalState.currentHeader.shutDownReason = ShutDownReason::LowBattery;
             eeprom.UpdateStatusHeader(globalState.currentHeader);
@@ -258,30 +246,34 @@ void setup() {
                 eeprom.WriteSettings(DefaultSettings());
             }
             else {
-                if(globalState.currentHeader.shutDownReason == ShutDownReason::Hibernate){
+                if(globalState.currentHeader.shutDownReason == ShutDownReason::Hibernate)
+                {
                     logl("Last EEPROM header indicates hibernation");
                     globalState.currentHeader.shutDownReason = ShutDownReason::Unplanned;
 
-                    // this was a healthy startup. Assume display is already initialized
+                    // this was a healthy startup. Assume display is axxlready initialized
                     shouldFullResetDisplay = false;
                 }
-                else if(globalState.currentHeader.shutDownReason == ShutDownReason::PowerOff || 
-                    globalState.currentHeader.shutDownReason == ShutDownReason::Unplanned){
-
+                else if(globalState.currentHeader.shutDownReason == ShutDownReason::PowerOff || globalState.currentHeader.shutDownReason == ShutDownReason::LowBattery)
+                {
                     logl("Last EEPROM header indicates power cycle. Starting fresh header");
                     globalState.currentHeader = FreshHeader();
                     app.setState(State::WelcomeScreen);
                 }
-                else if(globalState.currentHeader.shutDownReason == ShutDownReason::FirmwareUpdate){
+                else if(globalState.currentHeader.shutDownReason == ShutDownReason::FirmwareUpdate)
+                {
                     logl("Last EEPROM header indicates firmware update.");
                     globalState.currentHeader.shutDownReason = ShutDownReason::FirmwareUpdate;
-                    // do NOT reset settings — preserve user preferences across updates
+
+                    // updates cause multiple resets. After 4 full seconds of the CPU running without a reset, we can assume that the update has completed.
+                    delay(4000);
                 }
-                else if(globalState.currentHeader.shutDownReason == ShutDownReason::Unplanned || globalState.currentHeader.shutDownReason == ShutDownReason::LowBattery){
+                else if(globalState.currentHeader.shutDownReason == ShutDownReason::Unplanned)
+                {
                     logl("Last EEPROM header indicates unplanned shutdown");
                     app.setState(State::InvalidStateNotice);
                     globalState.currentHeader = FreshHeader();
-                    eeprom.WriteSettings(DefaultSettings());
+                   eeprom.WriteSettings(DefaultSettings());
                 }
                 else{
                     MASSERT(false);
@@ -435,19 +427,19 @@ void pollUSB() {
         /*else*/ if(c == FirmwareUpdateNotifyByte){
             globalState.currentHeader.shutDownReason = ShutDownReason::FirmwareUpdate;
             eeprom.UpdateStatusHeader(globalState.currentHeader);           
-             g_fwUpdateMagic = FW_UPDATE_MAGIC; // survives the reset; corrects Unplanne -> FirmwareUpdate on next boot
-            _display.StartRefresh();
-            _display.d->setRotation(2);
-            _display.d->setFont(&FreeMonoBold12pt7b);
-            _display.d->fillScreen(GxEPD_WHITE);
-            _display.d->setCursor(0, 96);
-            _display.d->print("downloading\nfirmware...");
-            _display.EndRefresh();
+
+            app.setState(State::DownloadingUpdate);
+            app.handle(globalState); // finish updating screen before acknowledging
 
             Serial.read();
-            Serial.printf("Update notification received\n");
+
+            // respond to updater script and confirm that we are good to proceed
+            Serial.printf("ack\n");
 
             downloadingFirmware = true; 
+
+            // safer to just wait for the updater to reset the device than to continue normal operation.
+            delay(10000);
         }
     }
 }
@@ -635,11 +627,14 @@ void loop() {
     if(power::USBConnected()){
         pollUSB();
 
-        if(downloadingFirmware == false && LoggerEnabled == false){
-            if(app.getState() != State::ChargingScreen && 
-               app.getState() != State::InvalidStateNotice &&
-               app.getState() != State::UpdateComplete){
-                app.setState(State::ChargingScreen);
+        if(power::ChargeStatus())
+        {
+            if(downloadingFirmware == false && LoggerEnabled == false){
+                if(app.getState() != State::ChargingScreen && 
+                app.getState() != State::InvalidStateNotice &&
+                app.getState() != State::UpdateComplete){
+                    app.setState(State::ChargingScreen);
+                }
             }
         }
     }

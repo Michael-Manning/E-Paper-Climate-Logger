@@ -53,10 +53,10 @@ enum class State {
    TimeSet,
    ChargingScreen,
    SettingsMenu,   
-   WelcomeScreen,   
+   WelcomeScreen, 
+   DownloadingUpdate,  
    UpdateComplete,
    Nothing,
-   //ChargingScreen,
    Count
 };
 
@@ -77,6 +77,7 @@ public:
             [this](){ ChargingScreen(); },
             [this](){ SettingsMenu(); },
             [this](){ WelcomeScreen(); },
+            [this](){ DownloadingUpdate(); },
             [this](){ UpdateComplete(); },
             [this](){  },
         };
@@ -129,6 +130,7 @@ private:
     void ChargingScreen();
     void SettingsMenu();
     void WelcomeScreen();
+    void DownloadingUpdate();
     void UpdateComplete();
 
     void drawGraph(int left, int right, int bottom, int top, const int16_t* dataY, int dataCount, int16_t* min, int16_t* max);
