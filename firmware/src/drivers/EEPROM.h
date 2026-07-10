@@ -50,7 +50,8 @@ struct StatusHeader{
    uint8_t index                   : 8 = 0;
    ShutDownReason shutDownReason   : 3;
    DisplayType selectedDisplayType : 2; // unused
-   bool displayCold                : 3;
+   bool displayCold                : 1;
+   bool displayNightMode           : 2;
    uint8_t partialRefreshCount     : 8 = 0;
    DisplayRefreshState refreshState: 8;
    uint16_t dataStart              : 16;
@@ -64,6 +65,7 @@ static inline StatusHeader FreshHeader(){
         .shutDownReason = ShutDownReason::Unplanned,
         .selectedDisplayType = DisplayType::Temp_Humi_Time,
         .displayCold = false,
+        .displayNightMode = false,
         .partialRefreshCount = 0,   
         .refreshState = DisplayRefreshState::Fresh,
         .dataStart = 0,

@@ -1204,3 +1204,20 @@ void App::UpdateComplete()
         globalState->shouldGoToSleep = true;
     }
 }
+
+void App::NightMode()
+{
+    auto d = disp->d;
+
+    if(shouldRedraw()){ 
+
+        disp->ForceFullNextRefresh();
+        disp->StartRefresh();
+        d->setRotation(2);
+        d->fillScreen(white);
+        d->drawBitmap(0, 0, bitmaps::power_off_screen, 200, 200, black);
+        disp->EndRefresh();
+
+        // preHibernateTasks() will handle hibernation
+    }
+}

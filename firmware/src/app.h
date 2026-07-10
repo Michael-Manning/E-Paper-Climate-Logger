@@ -56,6 +56,7 @@ enum class State {
    WelcomeScreen, 
    DownloadingUpdate,  
    UpdateComplete,
+   NightMode,
    Nothing,
    Count
 };
@@ -79,6 +80,7 @@ public:
             [this](){ WelcomeScreen(); },
             [this](){ DownloadingUpdate(); },
             [this](){ UpdateComplete(); },
+            [this](){ NightMode(); },
             [this](){  },
         };
     }
@@ -144,6 +146,7 @@ private:
     void WelcomeScreen();
     void DownloadingUpdate();
     void UpdateComplete();
+    void NightMode();
 
     void drawGraph(int left, int right, int bottom, int top, const int16_t* dataY, int dataCount, int16_t* min, int16_t* max, bool forceRange = false, int16_t forcedMin = 0, int16_t forcedMax = 0);
 

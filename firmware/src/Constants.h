@@ -19,4 +19,7 @@ namespace Constants
 
     constexpr int firmwareVersionMajor = 1;
     constexpr int firmwareVersionMinor = 1;
+
+    constexpr int nightModeHourStart = 23; // 11pm
+    constexpr int nightModeHourEnd = 6; // 6am
 } 
