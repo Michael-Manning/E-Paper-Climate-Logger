@@ -155,6 +155,14 @@ void updateButtonState(bool btn1State, bool btn2State, uint32_t timestampMS){
 
 
 
+void clearMultipressState()
+{
+    btn1MultipressCount          = 0;
+    btn2MultipressCount          = 0;
+    btn1MultipressCountConfirmed = -1;
+    btn2MultipressCountConfirmed = -1;
+}
+
 bool debounceButton1(bool rawState, uint32_t timestampMS, bool force)
 {
     constexpr float     alpha         = 0.20f;   // EWMA weight

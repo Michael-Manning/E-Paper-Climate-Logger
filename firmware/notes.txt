@@ -7,3 +7,4 @@ TODO:
 - should re-render display when time range setting is changed
 - replace datetime version that only has hour/minute/second. Change read/write to only use those registers to save time
 - can do some async i2c stuff, like when hibernating, you can hibernate the display at the same time as the eeprom is updated
+- create mock EEPROM driver and create unit tests to verify data retrieval logic and ensure there are not bugs related to ring buffer edges.

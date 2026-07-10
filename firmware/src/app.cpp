@@ -101,7 +101,7 @@ static inline int mapY_to_screen(int v, int ymin, int height, int bottom, int yr
 }
 
 // y coordinates including bottom,top are from physical bottom of the screen
-void App::drawGraph(int left, int right, int bottom, int top, const int16_t* dataY, int dataCount, int16_t* min, int16_t* max)
+void App::drawGraph(int left, int right, int bottom, int top, const int16_t* dataY, int dataCount, int16_t* min, int16_t* max, bool forceRange, int16_t forcedMin, int16_t forcedMax)
 {
     auto d = disp->d;
     uint32_t timeStamp = micros();
@@ -149,10 +149,15 @@ void App::drawGraph(int left, int right, int bottom, int top, const int16_t* dat
         if (v < ymin) ymin = v;
         if (v > ymax) ymax = v;
     }
-    const int yrange = ymax - ymin;
-
     *max = ymax;
     *min = ymin;
+
+    if (forceRange) {
+        ymin = forcedMin;
+        ymax = forcedMax;
+    }
+
+    const int yrange = ymax - ymin;
 
     // fast path: #samples <= #pixels -> draw polyline
     if (dataCount <= (width + 1)) {
@@ -539,7 +544,7 @@ void App::DebugMenu()
             disp->printf(100, 40, "CHG: %s", (int)ps.Charging ? "yes" : "no");
             disp->printf(0, 60, "voltage: %.3fV", ps.batteryVoltage);
             disp->printf(0, 80, "current: %dmA", (int)ps.averageCurrent_ma);
-            disp->printf(0, 100, "SOC: %d%%", (int)ps.batteryCapacity_percentage);
+            disp->printf(0, 100, "Battery: %d%%", (int)ps.batteryCapacity_percentage);
 
             if(globalState->currentSettings.tempFormat == TemperatureFormat::Celcius)
                 disp->printf(0, 120, "temp: %.2f C", globalState->lastClimateReading.Temperature_c());
@@ -624,59 +629,154 @@ std::array<ClimateSample, flash::dataCapacity> climateHistory2;
 
 void App::ViewData()
 {
-        auto d = disp->d;
+    auto d = disp->d;
 
-    if(shouldRedraw()){ 
-        disp->StartRefresh();
-        d->setRotation(1);
-            
-        d->fillScreen(white);
-        d->setFont(&FreeMonoBold12pt7b);
+    const uint8_t  M         = globalState->currentTime.Minute;
+    const uint8_t  M_30      = M % 30;   // offset within the current 30-min block
+    const uint16_t dataCount = globalState->currentHeader.dataCount;
 
-        disp->print(0, 16, "Cool Graph");
+    // Window is always 60 minutes wide; steps snap to 30-minute boundaries.
+    // All range values are in "minutes ago" (0 = most recent sample).
+    uint16_t rangeStart_ago, rangeEnd_ago;
+    if (viewDataHourOffset == 0) {
+        // Most recent: last 60 minutes without rounding
+        rangeEnd_ago   = 0;
+        rangeStart_ago = (dataCount < 60) ? dataCount : 60;
+    } else {
+        uint16_t newerEdge = (uint16_t)((int)M_30 + (viewDataHourOffset - 1) * 30);
+        uint16_t olderEdge = newerEdge + 60;
+        if (olderEdge >= dataCount) {
+            // Oldest page: anchor to oldest data point, show 60 minutes forward
+            rangeStart_ago = dataCount;
+            rangeEnd_ago   = (dataCount >= 60) ? (uint16_t)(dataCount - 60) : 0;
+        } else {
+            rangeStart_ago = olderEdge;
+            rangeEnd_ago   = newerEdge;
+        }
+    }
 
+    // Can we navigate further in each direction?
+    bool canGoOlder;
+    if (viewDataHourOffset == 0) {
+        canGoOlder = (dataCount > 60);
+    } else {
+        // Already on the oldest page when olderEdge >= dataCount; don't allow further steps
+        uint16_t newerEdge_cur = (uint16_t)((int)M_30 + (viewDataHourOffset - 1) * 30);
+        uint16_t olderEdge_cur = newerEdge_cur + 60;
+        canGoOlder = (olderEdge_cur < dataCount);
+    }
+    bool canGoNewer = (viewDataHourOffset > 0);
 
-        const int loadRange = 60 * 8; // get up to the last 8 hours
-        uint16_t requestAmount = globalState->currentHeader.dataCount < loadRange ? globalState->currentHeader.dataCount : loadRange; 
-
-        uint16_t actualCount;
+    if(shouldRedraw()){
+        // Load the samples for this page
+        uint16_t actualCount = 0;
         eeprom->GetClimateSamples(
-            globalState->currentHeader, 
-            climateHistory2.data(),  
-            requestAmount,
-            0,
+            globalState->currentHeader,
+            climateHistory2.data(),
+            rangeStart_ago,
+            rangeEnd_ago,
             actualCount
         );
-        uint16_t historyEnd = 0;
-        uint16_t historyStart = actualCount;
-        int readingCount = historyStart - historyEnd; // dumb?
 
-        for (int i = historyEnd; i < historyStart; i++)
-        {
-            rawTemperatureBuffer[i - historyEnd] = climateHistory2[i].temperature_raw;
+        if (viewDataShowHumidity) {
+            for (uint16_t i = 0; i < actualCount; i++)
+                rawTemperatureBuffer[i] = climateHistory2[i].humidity_raw;
+        } else {
+            for (uint16_t i = 0; i < actualCount; i++)
+                rawTemperatureBuffer[i] = climateHistory2[i].temperature_raw;
         }
 
-        int16_t min, max;
-        drawGraph(0, 199, 13, 150, rawTemperatureBuffer.data(), readingCount, &min, &max);
-
+        disp->StartRefresh();
+        d->setRotation(1);
+        d->fillScreen(white);
         d->setFont(&FreeMonoBold9pt7b);
-        if(readingCount > 1){
-            disp->printf(0, 199, "T-%dm", (int(readingCount)));
-            disp->printf(140, 199, "%.2f", min / 100.0f);
-            disp->printf(140, 43, "%.2f", max / 100.0f);
+
+        // --- Nav bar ---
+        // Btn2 (left): single=Older, double=Back
+        d->drawCircle(14, 6, 2, black);
+        disp->print(24, 10, "Older");
+        d->drawCircle(4,  22, 2, black);
+        d->drawCircle(14, 22, 2, black);
+        disp->print(24, 26, "Back");
+
+        // Btn1 (right): single=Newer, double=toggle humi/temp
+        d->drawCircle(120, 6, 2, black);
+        disp->print(128, 10, "Newer");
+        d->drawCircle(110, 22, 2, black);
+        d->drawCircle(120, 22, 2, black);
+        disp->print(128, 26, viewDataShowHumidity ? "Temp" : "Humi");
+
+        d->drawFastHLine(0, 30, 199, black);
+
+        // --- Draw graph ---
+        // Graph physical coords: bottom=17, top=155  ->  screen y invt=44, invb=182
+        int16_t gMin = 0, gMax = 0;
+        drawGraph(0, 199, 17, 155, rawTemperatureBuffer.data(), (int)actualCount, &gMin, &gMax,
+                  viewDataShowHumidity, 0, 10000);
+
+        // --- Time range label (top-left of graph) ---
+        {
+            auto subMinutes = [](uint8_t h, uint8_t m, int minutesAgo) -> std::pair<int,int> {
+                int total = (int)h * 60 + (int)m - minutesAgo;
+                total = ((total % (24 * 60)) + (24 * 60)) % (24 * 60);
+                return { total / 60, total % 60 };
+            };
+            auto [sH, sM] = subMinutes(globalState->currentTime.Hour, M, (int)rangeStart_ago);
+            auto [eH, eM] = subMinutes(globalState->currentTime.Hour, M, (int)rangeEnd_ago);
+            char rangeBuf[20];
+            sprintf(rangeBuf, "%d:%02d-%d:%02d", sH, sM, eH, eM);
+            disp->print(2, 43, rangeBuf);
         }
-        else{
-            disp->printf(0, 199, "No data", (int(readingCount)));
+
+        // --- Min/max labels (right corners of graph) ---
+        if (actualCount > 1) {
+            char buf[12];
+            if (viewDataShowHumidity) {
+                disp->print(150, 43, "100%");
+                disp->print(170, 195, "0%");
+            } else {
+                bool isCelcius = (globalState->currentSettings.tempFormat == TemperatureFormat::Celcius);
+                float fMax = isCelcius ? (gMax / 100.0f) : (gMax / 100.0f * 9.0f / 5.0f + 32.0f);
+                float fMin = isCelcius ? (gMin / 100.0f) : (gMin / 100.0f * 9.0f / 5.0f + 32.0f);
+                char unitCh = isCelcius ? 'C' : 'F';
+                sprintf(buf, "%.1f%c", fMax, unitCh);
+                disp->print(140, 43, buf);
+                sprintf(buf, "%.1f%c", fMin, unitCh);
+                disp->print(140, 195, buf);
+            }
+        } else {
+            disp->print(2, 120, "No data");
         }
 
         disp->EndRefresh();
     }
 
-    if(getBtn2Down()){
+    // Button handling
+    if (getBtn2MultiPressimmediate() == 2) {
+        // Double press left: exit to main menu
         setState(State::MainMenu);
+    } else if (getBtn2MultiPressConfirmed() == 1) {
+        // Single press left: navigate to older data
+        if (canGoOlder) {
+            viewDataHourOffset++;
+            setRedraw();
+        }
     }
 
-    // never timeout while viewing data (this should be chnaged to a different, longer timeout instead of no timeout)
+    if (getBtn1MultiPressimmediate() == 2) {
+        // Double press right: toggle temperature / humidity graph
+        viewDataShowHumidity = !viewDataShowHumidity;
+        setRedraw();
+        clearMultipressState();
+    } else if (getBtn1MultiPressConfirmed() == 1) {
+        // Single press right: navigate to newer data
+        if (canGoNewer) {
+            viewDataHourOffset--;
+            setRedraw();
+        }
+    }
+
+    // Never timeout while viewing data
     resetInactivity();
 }
 

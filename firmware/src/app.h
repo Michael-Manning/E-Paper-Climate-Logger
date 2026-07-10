@@ -8,7 +8,7 @@
 #include "drivers/SHT45.h"
 #include "drivers/EEPROM.h"
 #include "debugLog.h"
-
+#include "buttons.h"
 
 enum DeepWakeupCause{
     ButtonFromHibernate,
@@ -90,6 +90,13 @@ public:
         if(newState == State::MainMenu)
             disp->DisableFullRefresh();
 
+        if(newState == State::ViewData) {
+            viewDataHourOffset = 0;
+            viewDataShowHumidity = false;
+        }
+
+        clearMultipressState();
+
         logf("set screen %d\n", (int)newState);
         currentState = newState; 
         redraw = true;
@@ -133,7 +140,7 @@ private:
     void DownloadingUpdate();
     void UpdateComplete();
 
-    void drawGraph(int left, int right, int bottom, int top, const int16_t* dataY, int dataCount, int16_t* min, int16_t* max);
+    void drawGraph(int left, int right, int bottom, int top, const int16_t* dataY, int dataCount, int16_t* min, int16_t* max, bool forceRange = false, int16_t forcedMin = 0, int16_t forcedMax = 0);
 
     State currentState = State::StandardDisplay;
     std::array<std::function<void()>, static_cast<size_t>(State::Count)> handlers;
@@ -146,5 +153,7 @@ private:
     int timeSetHour = 0;
     int timeSetMinute = 0;
     uint64_t updateCompleteEntryTime_ms = 0;
+    int viewDataHourOffset = 0;
+    bool viewDataShowHumidity = false;
 
 };
