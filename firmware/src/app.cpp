@@ -958,34 +958,46 @@ void App::TimeSet()
 
 void App::ChargingScreen()
 {
-    
     auto d = disp->d;
 
-    if(shouldRedraw()){ 
+    bool redrawRequested = shouldRedraw();
 
-        disp->ForceFullNextRefresh();
-
-        disp->StartRefresh();
-        d->setRotation(2);
-            
-        d->fillScreen(white);
-
+    if(redrawRequested) {
         PowerStatus ps = {};
         power::GetPowerStatus(ps);
 
-        d->drawBitmap(15, 20, bitmaps::charging_battery, 175, 77, black);
+        int currentPct = ps.batteryCapacity_percentage;
+        float currentVoltage = ps.batteryVoltage;
 
-        d->setFont(&FreeMonoBold12pt7b);
-        disp->print(10, 145, "Charging");
-        d->drawBitmap(144, 120, bitmaps::face_happy_1, 48, 48, black);
+        bool firstShow = (chargingScreenBatteryPct == -1);
+        bool valuesChanged = firstShow ||
+            currentPct != chargingScreenBatteryPct ||
+            fabsf(currentVoltage - chargingScreenBatteryVoltage_V) >= 0.01f;
 
-        disp->EndRefresh();
+        if(valuesChanged) {
+            if(firstShow) {
+                disp->ForceFullNextRefresh();
+            }
 
-        disp->Hibernate();
-    }
+            disp->StartRefresh();
+            d->setRotation(2);
+            d->fillScreen(white);
 
-    if(getBtn2MultiPressimmediate() == 2){
-        setState(State::MainMenu);
+            d->drawBitmap(15, 20, bitmaps::charging_battery, 175, 77, black);
+
+            d->setFont(&FreeMonoBold12pt7b);
+            disp->print(10, 145, "Charging");
+            d->drawBitmap(144, 120, bitmaps::face_happy_1, 48, 48, black);
+
+            d->setFont(&FreeMonoBold9pt7b);
+            disp->printf(10, 185, "%d%%  %.3fV", currentPct, currentVoltage);
+
+            disp->EndRefresh();
+            disp->Hibernate();
+
+            chargingScreenBatteryPct = currentPct;
+            chargingScreenBatteryVoltage_V = currentVoltage;
+        }
     }
 }
 

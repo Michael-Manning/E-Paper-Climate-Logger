@@ -622,6 +622,9 @@ void loop() {
         if(app.getState() == State::StandardDisplay){
             app.setState(State::StandardDisplay); // refresh screen to reflect new time and temperature
         }
+        else if(app.getState() == State::ChargingScreen){
+            app.setState(State::ChargingScreen); // trigger periodic battery value check/update
+        }
     }
 
     if(power::USBConnected()){

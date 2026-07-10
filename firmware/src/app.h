@@ -95,6 +95,11 @@ public:
             viewDataShowHumidity = false;
         }
 
+        if(currentState == State::ChargingScreen && newState != State::ChargingScreen) {
+            chargingScreenBatteryPct = -1;
+            chargingScreenBatteryVoltage_V = -1.0f;
+        }
+
         clearMultipressState();
 
         logf("set screen %d\n", (int)newState);
@@ -155,5 +160,7 @@ private:
     uint64_t updateCompleteEntryTime_ms = 0;
     int viewDataHourOffset = 0;
     bool viewDataShowHumidity = false;
+    int chargingScreenBatteryPct = -1;
+    float chargingScreenBatteryVoltage_V = -1.0f;
 
 };
