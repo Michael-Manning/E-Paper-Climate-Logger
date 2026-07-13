@@ -1,8 +1,10 @@
 #pragma once
 
+#include "Constants.h"
+
 struct PowerStatus{
    bool Charging;
-   float batteryVoltage = 0.0f;
+   int batteryVoltage_mv = 0.0f;
    int batteryCapacity_percentage = 0;
    int averageCurrent_ma =0;
 };
@@ -10,10 +12,12 @@ struct PowerStatus{
 namespace power{
 
     constexpr uint16_t BatteryCapacity_mah = 400;
-    constexpr uint16_t BatteryTerminateVoltage_mv = 3300;
-    constexpr uint16_t TaperCurrent_ma = 12; // VERIFY
+    // 10% of ISET-programmed charge current: 890 / 5100Ω = 174.5mA → taper = 17.5mA
+    constexpr uint16_t TaperCurrent_ma = 17;
 
     bool USBConnected();
+
+    bool ChargeStatus();
 
     bool GetPowerStatus(PowerStatus& status);
 
@@ -25,4 +29,5 @@ namespace power{
 
     bool ConfigureFuelGauge();
 
+    bool BatteryReconnected();
 }

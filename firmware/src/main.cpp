@@ -32,6 +32,10 @@ unsigned long time_now_s;
 #define COLORED 0
 #define UNCOLORED 1
 
+constexpr uint32_t _lightSleepInactivityThreshold_ms = 1000;         // 1s
+constexpr uint32_t _deepSleepInactivityThreshold_ms = 10000;         // 10s
+constexpr uint32_t _extendedDeepSleepInactivityThreshold_ms = 30000; // 30s
+
 using namespace plt;
 
 namespace {
@@ -48,8 +52,23 @@ uint32_t deepSleepInactivityTimer_ms = 0;
 uint32_t programStartTimer_ms = 0;
 uint32_t clockReadTimer_ms = 0;
 
-constexpr uint32_t lightSleepInactivity_ms = 1000;
-constexpr uint32_t deepSleepInactivity_ms = 10000;
+// Indicates the last wake up was specifically caused by pressing the power button while the night screen was shown.
+// This is needed to prevent the menu from being shown before the standard display.
+bool manualWakeUpFromNightScreen = false;
+
+
+constexpr uint32_t GetLightSleepInactivityThreshold_ms()
+{
+    return _lightSleepInactivityThreshold_ms;
+}
+uint32_t GetDeepSleepInactivityThreshold_ms()
+{
+    // When the view data screen is open, use a longer timeout.
+    if(app.getState() == State::ViewData)
+        return _extendedDeepSleepInactivityThreshold_ms;
+    return _deepSleepInactivityThreshold_ms;
+}
+
 
 }  // namespace
 
@@ -124,22 +143,36 @@ void loadClimateDate(){
 
 void preHibernateTasks(){
     
-    if(globalState.currentHeader.displayCold)
+    if(globalState.currentHeader.displayingCold)
         _display.ShutDown();
     else
         _display.Hibernate();
     
     // write to eeprom
     logl("updating header");
-    if(globalState.currentHeader.shutDownReason != ShutDownReason::FirmwareUpdate){
+    if(power::USBConnected() && globalState.currentHeader.shutDownReason == ShutDownReason::FirmwareUpdate)
+    {
+        // probably never happens
+        globalState.currentHeader.shutDownReason = ShutDownReason::FirmwareUpdate;
+    }
+    else{
         globalState.currentHeader.shutDownReason = ShutDownReason::Hibernate;
     }
+    
     eeprom.UpdateStatusHeader(globalState.currentHeader);
 
-    if(power::USBConnected){
+    if(debugLogUSBConnected){
         logl("going back to sleep...");
         delay(200);
     }
+}
+
+static bool isNightHours(const DateTime& t){
+    // nightModeHourStart > nightModeHourEnd means the range wraps midnight (e.g. 23:00 - 06:00)
+    if(Constants::nightModeHourStart > Constants::nightModeHourEnd)
+        return t.Hour >= Constants::nightModeHourStart || t.Hour < Constants::nightModeHourEnd;
+    else
+        return t.Hour >= Constants::nightModeHourStart && t.Hour < Constants::nightModeHourEnd;
 }
 
 // when woken up by alarm, just quickly update then screen then go back to sleep;
@@ -154,6 +187,7 @@ void doAlarmRoutine(bool updateDisplay){
 void setup() {
     configurePins();
     power::LatchOnOffController();
+    setCpuFrequencyMhz(80);
 
     esp_sleep_wakeup_cause_t wakeupCause = esp_sleep_get_wakeup_cause();
     bool wasHibernating = wakeupCause != ESP_SLEEP_WAKEUP_UNDEFINED;
@@ -162,16 +196,20 @@ void setup() {
     // climate is priority because the MCU will heat up the board the longer it is on
     for (int i = 0; i < 5; i++)
     {
+        // idk why, but sometimes it takes more than one try to get valid data from the SHT45
         if(globalState.lastClimateReading.humidity_raw != 0.0f)
             break;  
         getClimate(globalState.lastClimateReading); 
     }
     
+    // display is near lower limit of operational temperature
+    bool displayCold = globalState.lastClimateReading.Temperature_c() < Constants::lowTemperatureDisplayThreshold_C;
+
     Serial.begin();
-    debugLogUSBConnected = power::USBConnected();
+    debugLogUSBConnected = power::USBConnected() && LoggerEnabled;
 
     // need this delay or the first messages are not recieved by my computer
-    if(debugLogUSBConnected && LoggerEnabled)
+    if(debugLogUSBConnected)
         delay(4000);
     
     if(wasHibernating)
@@ -187,11 +225,11 @@ void setup() {
     configureRTC();
     _clock.ClearAlarm1();
         
-    // uncomment if a fresh board
-    // power::ConfigureFuelGauge();
     PowerStatus ps;
     power::GetPowerStatus(ps);
 
+    if (power::BatteryReconnected())
+        power::ConfigureFuelGauge();
 
     globalState.currentTime = _clock.Read();
 
@@ -208,30 +246,50 @@ void setup() {
         if(!validState){
             logl("header state invalid. Resetting..");
             eeprom.FactoryReset();
+            eeprom.WriteSettings(DefaultSettings());
             app.setState(State::InvalidStateNotice);
         }
         
         auto res = eeprom.GetLastStatusHeader(globalState.currentHeader);
 
-        if(power::USBConnected()){
-            delay(200);
-        }
-        else if(ps.batteryVoltage <= Constants::lowBatteryThreshold_V){
+        // handle dead battery
+        if(power::USBConnected() == false && (ps.batteryVoltage_mv <= Constants::lowBatteryThreshold_mv)){
             globalState.currentHeader.shutDownReason = ShutDownReason::LowBattery;
-            eeprom.UpdateStatusHeader(globalState.currentHeader);
-            
-            _display.ForceFullNextRefresh();
-            _display.StartRefresh();
-            _display.d->setRotation(1);
-            _display.d->fillScreen(GxEPD_WHITE);
-            _display.d->drawBitmap(0, 0, bitmaps::dead_battery_screen, 200, 200, GxEPD_BLACK);
-            _display.EndRefresh();
+                        
+            // if the device dies while it's already cold, there's nothing we can do. Just shut down.
+            // Don't bother refreshing the screen if EEPROM indicates it's already being shown.
+            if(displayCold == false && globalState.currentHeader.displayingLowBattery == false)
+            {  
+                _display.Init(shouldFullResetDisplay, &globalState.currentHeader);
+                
+                _display.ForceFullNextRefresh();
+                _display.StartRefresh();
+                _display.d->setRotation(2);
+                _display.d->fillScreen(GxEPD_WHITE);
+                _display.d->drawBitmap(0, 0, bitmaps::dead_battery_screen, 200, 200, GxEPD_BLACK);
+                _display.EndRefresh();
 
+                globalState.currentHeader.displayingLowBattery = true;
+                globalState.currentHeader.displayingCold = false;
+                globalState.currentHeader.displayingNightMode = false;
+
+                eeprom.StartNextStatusHeader(globalState.currentHeader);
+                eeprom.UpdateStatusHeader(globalState.currentHeader);
+                
+                delay(50);
+            }
+            
+
+            _display.ShutDown();
             power::ShutdownSystem();
+
+            // unreachable code
         }
+        globalState.currentHeader.displayingLowBattery = false;
 
         if(res == EEPROM::HeaderResult::ReadError){
             logl("failed to read EEPROM!");
+            // ??? 
         }
         else{
             if(res == EEPROM::HeaderResult::NoHeadersFound){
@@ -241,30 +299,34 @@ void setup() {
                 eeprom.WriteSettings(DefaultSettings());
             }
             else {
-                if(globalState.currentHeader.shutDownReason == ShutDownReason::Hibernate){
+                if(globalState.currentHeader.shutDownReason == ShutDownReason::Hibernate)
+                {
                     logl("Last EEPROM header indicates hibernation");
                     globalState.currentHeader.shutDownReason = ShutDownReason::Unplanned;
 
-                    // this was a healthy startup. Assume display is already initialized
+                    // this was a healthy startup. Assume display is axxlready initialized
                     shouldFullResetDisplay = false;
                 }
-                else if(globalState.currentHeader.shutDownReason == ShutDownReason::PowerOff || 
-                    globalState.currentHeader.shutDownReason == ShutDownReason::LowBattery){
-
+                else if(globalState.currentHeader.shutDownReason == ShutDownReason::PowerOff || globalState.currentHeader.shutDownReason == ShutDownReason::LowBattery)
+                {
                     logl("Last EEPROM header indicates power cycle. Starting fresh header");
                     globalState.currentHeader = FreshHeader();
                     app.setState(State::WelcomeScreen);
                 }
-                else if(globalState.currentHeader.shutDownReason == ShutDownReason::FirmwareUpdate){
+                else if(globalState.currentHeader.shutDownReason == ShutDownReason::FirmwareUpdate)
+                {
                     logl("Last EEPROM header indicates firmware update.");
                     globalState.currentHeader.shutDownReason = ShutDownReason::FirmwareUpdate;
-                    eeprom.WriteSettings(DefaultSettings());
+
+                    // updates cause multiple resets. After 4 full seconds of the CPU running without a reset, we can assume that the update has completed.
+                    delay(4000);
                 }
-                else if(globalState.currentHeader.shutDownReason == ShutDownReason::Unplanned){
+                else if(globalState.currentHeader.shutDownReason == ShutDownReason::Unplanned)
+                {
                     logl("Last EEPROM header indicates unplanned shutdown");
                     app.setState(State::InvalidStateNotice);
                     globalState.currentHeader = FreshHeader();
-                    eeprom.WriteSettings(DefaultSettings());
+                   eeprom.WriteSettings(DefaultSettings());
                 }
                 else{
                     MASSERT(false);
@@ -274,14 +336,14 @@ void setup() {
             }
 
             logl("starting header");
-            if(power::USBConnected())
+            if(debugLogUSBConnected)
                 delay(200);
             bool success = eeprom.StartNextStatusHeader(globalState.currentHeader);
             MASSERT(success);
             
 
             logl("updating header");
-            if (power::USBConnected())
+            if (debugLogUSBConnected)
                delay(200);
             success = eeprom.UpdateStatusHeader(globalState.currentHeader);
             MASSERT(success);
@@ -293,11 +355,10 @@ void setup() {
             eeprom.AddClimateSample(globalState.currentHeader, globalState.lastClimateReading);
         }
 
-        bool displayCold = globalState.lastClimateReading.Temperature_c() < Constants::lowTemperatureDisplayThreshold_C;
         bool displayingColdWarningScreen = false; // previus power cycle indicates the device screen has been too cold for some time already.
         if(displayCold){
-            if(globalState.currentHeader.displayCold == false){
-                globalState.currentHeader.displayCold = true;
+            if(globalState.currentHeader.displayingCold == false){
+                globalState.currentHeader.displayingCold = true;
                 app.setState(State::LowTempWarning);
             }
             else{
@@ -306,8 +367,8 @@ void setup() {
         }
         else {
             // reset the header flag once it warms back up
-            if(globalState.currentHeader.displayCold == true){
-                globalState.currentHeader.displayCold = false;
+            if(globalState.currentHeader.displayingCold == true){
+                globalState.currentHeader.displayingCold = false;
             }
         }
 
@@ -325,7 +386,35 @@ void setup() {
                     if(!displayingColdWarningScreen)
                         loadClimateDate();  
 
-                    doAlarmRoutine(!displayingColdWarningScreen);
+                    // if temperature dropped while night mode was active, clear the night mode flag
+                    if(displayCold && globalState.currentHeader.displayingNightMode)
+                        globalState.currentHeader.displayingNightMode = false;
+
+                    // night screen: suppress display updates during configured night hours
+                    if(!displayCold && globalState.currentSettings.nightScreen && isNightHours(globalState.currentTime)){
+                        if(globalState.currentHeader.displayingNightMode){
+                            // night screen already showing — skip display update, just record data and sleep
+                            doAlarmRoutine(false);
+                        } else {
+                            // first entry into night mode — show night screen and persist the flag
+                            app.setState(State::NightMode);
+                            globalState.currentHeader.displayingNightMode = true;
+                            doAlarmRoutine(true);
+                        }
+                        // unreachable: doAlarmRoutine calls HibernateSystem
+                    }
+
+                    bool shouldUpdateDisplay = !displayingColdWarningScreen;
+                    if(shouldUpdateDisplay){
+                        uint8_t intervalMinutes = 1;
+                        switch(globalState.currentSettings.refreshInterval){
+                            case RefreshInterval::_5Minutes:  intervalMinutes = 5;  break;
+                            case RefreshInterval::_10Minutes: intervalMinutes = 10; break;
+                            default: break;
+                        }
+                        shouldUpdateDisplay = (globalState.currentTime.Minute % intervalMinutes == 0);
+                    }
+                    doAlarmRoutine(shouldUpdateDisplay);
                     
                     // unreachable code due to deep sleep
                     return;
@@ -343,6 +432,12 @@ void setup() {
                 globalState.lastDeepWakeupCause = DeepWakeupCause::ButtonFromHibernate;
                 globalState.sleepIndicator = false;
                 logl("woke up due to button press");
+                // user pressed button while night screen was showing, clear the flag so
+                // standardDisplay is shown and normal operation resumes until next alarm wake up inactivity sleep
+
+                if(globalState.currentHeader.displayingNightMode)
+                    manualWakeUpFromNightScreen = true;
+                globalState.currentHeader.displayingNightMode = false;
             }
         }
         else{
@@ -352,8 +447,10 @@ void setup() {
                 _clock.ClearAlarm1();
             }
 
-            if(globalState.currentHeader.shutDownReason == ShutDownReason::FirmwareUpdate)
+            if(globalState.currentHeader.shutDownReason == ShutDownReason::FirmwareUpdate){
                 globalState.lastDeepWakeupCause = DeepWakeupCause::FirmwareUpdate;
+                app.setState(State::UpdateComplete);
+            }
             else
                 globalState.lastDeepWakeupCause = DeepWakeupCause::ButtonFromPowerOff;
         }
@@ -405,20 +502,20 @@ void pollUSB() {
         // }
         /*else*/ if(c == FirmwareUpdateNotifyByte){
             globalState.currentHeader.shutDownReason = ShutDownReason::FirmwareUpdate;
-            eeprom.UpdateStatusHeader(globalState.currentHeader);
+            eeprom.UpdateStatusHeader(globalState.currentHeader);           
 
-            _display.StartRefresh();
-            _display.d->setRotation(2);
-            _display.d->setFont(&FreeMonoBold12pt7b);
-            _display.d->fillScreen(GxEPD_WHITE);
-            _display.d->setCursor(0, 96);
-            _display.d->print("downloading\nfirmware...");
-            _display.EndRefresh();
+            app.setState(State::DownloadingUpdate);
+            app.handle(globalState); // finish updating screen before acknowledging
 
             Serial.read();
-            Serial.printf("Update notification received\n");
+
+            // respond to updater script and confirm that we are good to proceed
+            Serial.printf("ack\n");
 
             downloadingFirmware = true; 
+
+            // safer to just wait for the updater to reset the device than to continue normal operation.
+            delay(10000);
         }
     }
 }
@@ -438,7 +535,7 @@ void doLightSleep(){
         ESP_EXT1_WAKEUP_ANY_LOW);
 
     // Configure timer wakeup after deep sleep timeout to go into a deeper sleep state
-    esp_sleep_enable_timer_wakeup((deepSleepInactivity_ms - lightSleepInactivity_ms) * 1000); // in microseconds
+    esp_sleep_enable_timer_wakeup((GetDeepSleepInactivityThreshold_ms() - GetLightSleepInactivityThreshold_ms()) * 1000); // in microseconds
 
     if(power::USBConnected()){
         logl("Entering light sleep...");
@@ -507,7 +604,7 @@ bool shuttingDown = false;
 bool firstLoop = true;
 
 void loop() {
-    debugLogUSBConnected = power::USBConnected();
+    debugLogUSBConnected = power::USBConnected() && debugLogUSBConnected;
 
     bool btn1Filtered = debounceButton1(!getPinLevel(pins::menuBtn), millis(), false);
     updateButtonState(
@@ -515,25 +612,28 @@ void loop() {
         !getPinLevel(pins::powerBtn), // btn2 is already debounced by the LTC2954
         millis());
         
-    // firmware updates cause multiple resets, so wait before reseting the shutdown reason
+    // firmware updates cause multiple resets. Keep FirmwareUpdate reason until the
+    // UpdateComplete screen is dismissed, which writes a clean reason to EEPROM.
+    // The 10-second USB timeout below is a last-resort fallback.
     if(globalState.currentHeader.shutDownReason == ShutDownReason::FirmwareUpdate){
         if(power::USBConnected()){
-            if(millis() - programStartTimer_ms > 28000){
+            if(millis() - programStartTimer_ms > 10000){
                 globalState.currentHeader.shutDownReason = ShutDownReason::Unplanned;
                 eeprom.UpdateStatusHeader(globalState.currentHeader);
             }
         }
-        else{
-            globalState.currentHeader.shutDownReason = ShutDownReason::Unplanned;
-            eeprom.UpdateStatusHeader(globalState.currentHeader);
-        }
+        // note: no else-branch here — if USB is disconnected the device will hibernate
+        // via normal inactivity and preHibernateTasks() will handle the reason correctly.
     }
 
     if(firstLoop && getBtn2Down() == false && globalState.lastDeepWakeupCause == DeepWakeupCause::ButtonFromHibernate){
         // It's possible to wake up the device via button press and then release it quickly enough before it gets
         // registered by the button state manager. So if we just woke up and we know the button was just pressed according
         // to the wakeup source, we should still perform the button action (which is to enter the main menu)
-        app.setState(State::MainMenu);
+
+        // if the device was showing the night screen, we actually want to show the standard diplay instead of skipping straight to the menu.
+        if(manualWakeUpFromNightScreen == false)
+            app.setState(State::MainMenu);
     }
 
     if(getBtn1() || getBtn2()){ 
@@ -591,6 +691,7 @@ void loop() {
 
         for (int i = 0; i < 5; i++)
         {
+            // idk why, but sometimes it takes more than one try to get valid data from the SHT45
             if(globalState.lastClimateReading.humidity_raw != 0.0f)
                 break;  
             getClimate(globalState.lastClimateReading); 
@@ -601,14 +702,22 @@ void loop() {
         if(app.getState() == State::StandardDisplay){
             app.setState(State::StandardDisplay); // refresh screen to reflect new time and temperature
         }
+        else if(app.getState() == State::ChargingScreen){
+            app.setState(State::ChargingScreen); // trigger periodic battery value check/update
+        }
     }
 
     if(power::USBConnected()){
         pollUSB();
 
-        if(downloadingFirmware == false && LoggerEnabled == false){
-            if(app.getState() != State::ChargingScreen && app.getState() != State::InvalidStateNotice){
-                app.setState(State::ChargingScreen);
+        if(power::ChargeStatus())
+        {
+            if(downloadingFirmware == false && LoggerEnabled == false){
+                if(app.getState() != State::ChargingScreen && 
+                app.getState() != State::InvalidStateNotice &&
+                app.getState() != State::UpdateComplete){
+                    app.setState(State::ChargingScreen);
+                }
             }
         }
     }
@@ -624,10 +733,21 @@ void loop() {
     // deep sleep due to inactivity
     if(
         !power::USBConnected() && !shuttingDown && 
-        (millis() - deepSleepInactivityTimer_ms > deepSleepInactivity_ms || globalState.shouldGoToSleep))
+        (millis() - deepSleepInactivityTimer_ms > GetDeepSleepInactivityThreshold_ms() || globalState.shouldGoToSleep))
     {
         _display.EnableFullRefresh();
         globalState.sleepIndicator = true;
+
+        // bool displayColdNow = globalState.lastClimateReading.Temperature_c() < Constants::lowTemperatureDisplayThreshold_C;
+        // if(!displayColdNow && globalState.currentSettings.nightScreen && isNightHours(globalState.currentTime)){
+        //     // re-enter night mode when sleeping due to inactivity during night hours
+        //     app.setState(State::NightMode);
+        //     globalState.currentHeader.displayNightMode = true;
+        // } else {
+        //     globalState.currentHeader.displayNightMode = false;
+        //     app.setState(State::StandardDisplay);
+        // }
+
         app.setState(State::StandardDisplay);
         app.handle(globalState);
         preHibernateTasks();
@@ -637,7 +757,7 @@ void loop() {
     }
 
     // light sleep due to inactivity
-    if(!shuttingDown && millis() - lightSleepInactivityTimer_ms > lightSleepInactivity_ms){
+    if(!shuttingDown && millis() - lightSleepInactivityTimer_ms > GetLightSleepInactivityThreshold_ms()){
         _display.Hibernate();
         if(!power::USBConnected())
             doLightSleep();

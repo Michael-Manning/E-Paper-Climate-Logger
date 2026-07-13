@@ -15,6 +15,8 @@
 
 #include <GxEPD2_BW.h>
 #include <Fonts/FreeMonoBold9pt7b.h>
+#include "esp_sleep.h"
+#include "power.h"
 
 #define USE_HSPI_FOR_EPD
 SPIClass hspi(HSPI);
@@ -160,6 +162,26 @@ int Display::printfAndOffset(int x, int y, const char* fmt, ...) {
 }
 
 
+// Called by GxEPD2 in place of delay(1) during every _waitWhileBusy loop iteration.
+// Entering light sleep here saves the active-CPU cost of the entire display refresh period.
+// EXT1 wakeup on the BUSY pin (active-low when idle) wakes us as soon as the display
+// finishes; the 500ms timer is a safety fallback in case EXT1 misfires.
+// When USB is connected, light sleep is skipped: the ESP32-S3 native USB CDC suspends
+// the connection during light sleep, which can corrupt the host-side COM port state and
+// cause esptool upload failures.
+static void displayBusyCallback(const void*)
+{
+    if(power::USBConnected()){
+        delay(1);
+        return;
+    }
+    esp_sleep_enable_ext1_wakeup(1ULL << pins::dsp_BUSY, ESP_EXT1_WAKEUP_ANY_LOW);
+    esp_sleep_enable_timer_wakeup(500ULL * 1000ULL); // 500 ms fallback
+    esp_light_sleep_start();
+    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_EXT1);
+    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);
+}
+
 void Display::Init(bool fresh, StatusHeader* currentStatusHeader){
     d = &display;
     this->_currentStatusHeader = currentStatusHeader;
@@ -174,6 +196,8 @@ void Display::Init(bool fresh, StatusHeader* currentStatusHeader){
     display.setRotation(1);
     display.setFont(&FreeMonoBold9pt7b);
     display.setTextColor(GxEPD_BLACK);
+
+    display.epd2.setBusyCallback(displayBusyCallback, nullptr);
 
     if(fresh)
         setRefreshState(DisplayRefreshState::Fresh);

@@ -29,3 +29,6 @@ int getBtn2MultiPressConfirmed();
 void updateButtonState(bool btn1, bool btn2, uint32_t timestampMS);
 
 bool debounceButton1(bool rawState, uint32_t timestampMS, bool force);
+
+// Zero out all multipress counters so the next screen starts with a clean slate.
+void clearMultipressState();

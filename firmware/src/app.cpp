@@ -16,7 +16,8 @@
 #include <Fonts/FreeMonoBold24pt7b.h>
 
 
-namespace{
+namespace
+{
     constexpr uint16_t black = GxEPD_BLACK;
     constexpr uint16_t white = GxEPD_WHITE;
     constexpr int dispw = 199;
@@ -25,7 +26,8 @@ namespace{
     std::array<int16_t, flash::dataCapacity> rawTemperatureBuffer;
 }
 
-void App::handle(const GlobalState& globalState) {
+void App::handle(const GlobalState& globalState) 
+{
       this->currentTime = globalState.currentTime;
       handlers[static_cast<size_t>(currentState)](); 
 }
@@ -99,7 +101,8 @@ static inline int mapY_to_screen(int v, int ymin, int height, int bottom, int yr
 }
 
 // y coordinates including bottom,top are from physical bottom of the screen
-void App::drawGraph(int left, int right, int bottom, int top, const int16_t* dataY, int dataCount, int16_t* min, int16_t* max){
+void App::drawGraph(int left, int right, int bottom, int top, const int16_t* dataY, int dataCount, int16_t* min, int16_t* max, bool forceRange, int16_t forcedMin, int16_t forcedMax)
+{
     auto d = disp->d;
     uint32_t timeStamp = micros();
     
@@ -146,10 +149,15 @@ void App::drawGraph(int left, int right, int bottom, int top, const int16_t* dat
         if (v < ymin) ymin = v;
         if (v > ymax) ymax = v;
     }
-    const int yrange = ymax - ymin;
-
     *max = ymax;
     *min = ymin;
+
+    if (forceRange) {
+        ymin = forcedMin;
+        ymax = forcedMax;
+    }
+
+    const int yrange = ymax - ymin;
 
     // fast path: #samples <= #pixels -> draw polyline
     if (dataCount <= (width + 1)) {
@@ -231,7 +239,8 @@ void App::drawGraph(int left, int right, int bottom, int top, const int16_t* dat
     logf("graph render: %dus\n", micros() - timeStamp);
 }
 
-void App::StandardDisplay(){
+void App::StandardDisplay()
+{
    auto d = disp->d;
 
     if(shouldRedraw()){
@@ -337,11 +346,14 @@ void App::StandardDisplay(){
             d->drawBitmap(x1 + w + 3, 38, bitmaps::percent_symbol_16, 16, 16, black);
 
             d->drawBitmap(0, 58, bitmaps::clock, 17, 17, black);
-            char timebuf[12];
+            char timebuf[14];
+            bool approxTime = globalState->currentSettings.refreshInterval != RefreshInterval::_1Minute;
+            int timeOffset = 0;
+            if(approxTime){ timebuf[0] = '~'; timeOffset = 1; }
             if(globalState->currentSettings.timeFormat == TimeFormat::_12Hour)
-                GetTimeString12(timebuf, currentTime);
+                GetTimeString12(timebuf + timeOffset, currentTime);
             else
-                GetTimeString24(timebuf, currentTime);
+                GetTimeString24(timebuf + timeOffset, currentTime);
             disp->print(20, 73, timebuf);
         }
 
@@ -388,7 +400,8 @@ void App::StandardDisplay(){
     }
 }
 
-void App::MainMenu(){
+void App::MainMenu()
+{
     auto d = disp->d;
 
     const char* options[] = {
@@ -485,7 +498,8 @@ void App::ShutDownScreen()
     }
 }
 
-void App::InvalidStateNotice(){
+void App::InvalidStateNotice()
+{
     auto d = disp->d;
 
     if(shouldRedraw()){
@@ -505,7 +519,8 @@ void App::InvalidStateNotice(){
     }
 }
 
-void App::DebugMenu(){
+void App::DebugMenu()
+{
     auto d = disp->d;
 
     if(shouldRedraw()){ 
@@ -527,9 +542,9 @@ void App::DebugMenu(){
         {
             disp->printf(0, 40, "USB: %s", (int)power::USBConnected() ? "yes" : "no");
             disp->printf(100, 40, "CHG: %s", (int)ps.Charging ? "yes" : "no");
-            disp->printf(0, 60, "voltage: %.3fV", ps.batteryVoltage);
+            disp->printf(0, 60, "voltage: %.3fV", (float)ps.batteryVoltage_mv / 1000.0f);
             disp->printf(0, 80, "current: %dmA", (int)ps.averageCurrent_ma);
-            disp->printf(0, 100, "SOC: %d%%", (int)ps.batteryCapacity_percentage);
+            disp->printf(0, 100, "Battery: %d%%", (int)ps.batteryCapacity_percentage);
 
             if(globalState->currentSettings.tempFormat == TemperatureFormat::Celcius)
                 disp->printf(0, 120, "temp: %.2f C", globalState->lastClimateReading.Temperature_c());
@@ -562,6 +577,10 @@ void App::DebugMenu(){
                 sprintf(dwakeupBuf, "power rst");
             }
 
+            disp->printf(0, 180, "Dwakeup: %s", dwakeupBuf);
+
+            // light sleep wake up reason disabled in favor of showing firmware version
+            # if false
             char lwakeupBuf[32];
             if(globalState->lastLightWakeupCause == LightWakeupCause::MenuButton){
                 sprintf(lwakeupBuf, "menu btn");
@@ -585,9 +604,13 @@ void App::DebugMenu(){
                 sprintf(lwakeupBuf, "? ext1");
             }
             
-
-            disp->printf(0, 180, "Dwakeup: %s", dwakeupBuf);
             disp->printf(0, 199, "Lwakeup: %s", lwakeupBuf);
+            #else
+            
+            disp->printf(0, 199, "FW version: %d.%d", Constants::firmwareVersionMajor, Constants::firmwareVersionMinor);
+
+            #endif
+
         }
         
         disp->EndRefresh();
@@ -604,64 +627,158 @@ void App::DebugMenu(){
 
 std::array<ClimateSample, flash::dataCapacity> climateHistory2;
 
-void App::ViewData(){
-        auto d = disp->d;
+void App::ViewData()
+{
+    auto d = disp->d;
 
-    if(shouldRedraw()){ 
-        disp->StartRefresh();
-        d->setRotation(1);
-            
-        d->fillScreen(white);
-        d->setFont(&FreeMonoBold12pt7b);
+    const uint8_t  M         = globalState->currentTime.Minute;
+    const uint8_t  M_30      = M % 30;   // offset within the current 30-min block
+    const uint16_t dataCount = globalState->currentHeader.dataCount;
 
-        disp->print(0, 16, "Cool Graph");
+    // Window is always 60 minutes wide; steps snap to 30-minute boundaries.
+    // All range values are in "minutes ago" (0 = most recent sample).
+    uint16_t rangeStart_ago, rangeEnd_ago;
+    if (viewDataHourOffset == 0) {
+        // Most recent: last 60 minutes without rounding
+        rangeEnd_ago   = 0;
+        rangeStart_ago = (dataCount < 60) ? dataCount : 60;
+    } else {
+        uint16_t newerEdge = (uint16_t)((int)M_30 + (viewDataHourOffset - 1) * 30);
+        uint16_t olderEdge = newerEdge + 60;
+        if (olderEdge >= dataCount) {
+            // Oldest page: anchor to oldest data point, show 60 minutes forward
+            rangeStart_ago = dataCount;
+            rangeEnd_ago   = (dataCount >= 60) ? (uint16_t)(dataCount - 60) : 0;
+        } else {
+            rangeStart_ago = olderEdge;
+            rangeEnd_ago   = newerEdge;
+        }
+    }
 
+    // Can we navigate further in each direction?
+    bool canGoOlder;
+    if (viewDataHourOffset == 0) {
+        canGoOlder = (dataCount > 60);
+    } else {
+        // Already on the oldest page when olderEdge >= dataCount; don't allow further steps
+        uint16_t newerEdge_cur = (uint16_t)((int)M_30 + (viewDataHourOffset - 1) * 30);
+        uint16_t olderEdge_cur = newerEdge_cur + 60;
+        canGoOlder = (olderEdge_cur < dataCount);
+    }
+    bool canGoNewer = (viewDataHourOffset > 0);
 
-        const int loadRange = 60 * 8; // get up to the last 8 hours
-        uint16_t requestAmount = globalState->currentHeader.dataCount < loadRange ? globalState->currentHeader.dataCount : loadRange; 
-
-        uint16_t actualCount;
+    if(shouldRedraw()){
+        // Load the samples for this page
+        uint16_t actualCount = 0;
         eeprom->GetClimateSamples(
-            globalState->currentHeader, 
-            climateHistory2.data(),  
-            requestAmount,
-            0,
+            globalState->currentHeader,
+            climateHistory2.data(),
+            rangeStart_ago,
+            rangeEnd_ago,
             actualCount
         );
-        uint16_t historyEnd = 0;
-        uint16_t historyStart = actualCount;
-        int readingCount = historyStart - historyEnd; // dumb?
 
-        for (int i = historyEnd; i < historyStart; i++)
-        {
-            rawTemperatureBuffer[i - historyEnd] = climateHistory2[i].temperature_raw;
+        if (viewDataShowHumidity) {
+            for (uint16_t i = 0; i < actualCount; i++)
+                rawTemperatureBuffer[i] = climateHistory2[i].humidity_raw;
+        } else {
+            for (uint16_t i = 0; i < actualCount; i++)
+                rawTemperatureBuffer[i] = climateHistory2[i].temperature_raw;
         }
 
-        int16_t min, max;
-        drawGraph(0, 199, 13, 150, rawTemperatureBuffer.data(), readingCount, &min, &max);
-
+        disp->StartRefresh();
+        d->setRotation(1);
+        d->fillScreen(white);
         d->setFont(&FreeMonoBold9pt7b);
-        if(readingCount > 1){
-            disp->printf(0, 199, "T-%dm", (int(readingCount)));
-            disp->printf(140, 199, "%.2f", min / 100.0f);
-            disp->printf(140, 43, "%.2f", max / 100.0f);
+
+        // --- Nav bar ---
+        // Btn2 (left): single=Older, double=Back
+        d->drawCircle(14, 6, 2, black);
+        disp->print(24, 10, "Older");
+        d->drawCircle(4,  22, 2, black);
+        d->drawCircle(14, 22, 2, black);
+        disp->print(24, 26, "Back");
+
+        // Btn1 (right): single=Newer, double=toggle humi/temp
+        d->drawCircle(120, 6, 2, black);
+        disp->print(128, 10, "Newer");
+        d->drawCircle(110, 22, 2, black);
+        d->drawCircle(120, 22, 2, black);
+        disp->print(128, 26, viewDataShowHumidity ? "Temp" : "Humi");
+
+        d->drawFastHLine(0, 30, 199, black);
+
+        // --- Draw graph ---
+        // Graph physical coords: bottom=17, top=155  ->  screen y invt=44, invb=182
+        int16_t gMin = 0, gMax = 0;
+        drawGraph(0, 199, 17, 155, rawTemperatureBuffer.data(), (int)actualCount, &gMin, &gMax,
+                  viewDataShowHumidity, 0, 10000);
+
+        // --- Time range label (top-left of graph) ---
+        {
+            auto subMinutes = [](uint8_t h, uint8_t m, int minutesAgo) -> std::pair<int,int> {
+                int total = (int)h * 60 + (int)m - minutesAgo;
+                total = ((total % (24 * 60)) + (24 * 60)) % (24 * 60);
+                return { total / 60, total % 60 };
+            };
+            auto [sH, sM] = subMinutes(globalState->currentTime.Hour, M, (int)rangeStart_ago);
+            auto [eH, eM] = subMinutes(globalState->currentTime.Hour, M, (int)rangeEnd_ago);
+            char rangeBuf[20];
+            sprintf(rangeBuf, "%d:%02d-%d:%02d", sH, sM, eH, eM);
+            disp->print(2, 43, rangeBuf);
         }
-        else{
-            disp->printf(0, 199, "No data", (int(readingCount)));
+
+        // --- Min/max labels (right corners of graph) ---
+        if (actualCount > 1) {
+            char buf[12];
+            if (viewDataShowHumidity) {
+                disp->print(150, 43, "100%");
+                disp->print(170, 195, "0%");
+            } else {
+                bool isCelcius = (globalState->currentSettings.tempFormat == TemperatureFormat::Celcius);
+                float fMax = isCelcius ? (gMax / 100.0f) : (gMax / 100.0f * 9.0f / 5.0f + 32.0f);
+                float fMin = isCelcius ? (gMin / 100.0f) : (gMin / 100.0f * 9.0f / 5.0f + 32.0f);
+                char unitCh = isCelcius ? 'C' : 'F';
+                sprintf(buf, "%.1f%c", fMax, unitCh);
+                disp->print(140, 43, buf);
+                sprintf(buf, "%.1f%c", fMin, unitCh);
+                disp->print(140, 195, buf);
+            }
+        } else {
+            disp->print(2, 120, "No data");
         }
 
         disp->EndRefresh();
     }
 
-    if(getBtn2Down()){
+    // Button handling
+    if (getBtn2MultiPressimmediate() == 2) {
+        // Double press left: exit to main menu
         setState(State::MainMenu);
+    } else if (getBtn2MultiPressConfirmed() == 1) {
+        // Single press left: navigate to older data
+        if (canGoOlder) {
+            viewDataHourOffset++;
+            setRedraw();
+        }
     }
 
-    // never timeout while viewing data (this should be chnaged to a different, longer timeout instead of no timeout)
-    resetInactivity();
+    if (getBtn1MultiPressimmediate() == 2) {
+        // Double press right: toggle temperature / humidity graph
+        viewDataShowHumidity = !viewDataShowHumidity;
+        setRedraw();
+        clearMultipressState();
+    } else if (getBtn1MultiPressConfirmed() == 1) {
+        // Single press right: navigate to newer data
+        if (canGoNewer) {
+            viewDataHourOffset--;
+            setRedraw();
+        }
+    }
 }
 
-void App::LowTempWarning(){
+void App::LowTempWarning()
+{
     
     auto d = disp->d;
 
@@ -697,7 +814,8 @@ void App::LowTempWarning(){
     }
 }
 
-void App::TimeSet(){
+void App::TimeSet()
+{
     auto d = disp->d;
 
     
@@ -835,39 +953,53 @@ void App::TimeSet(){
 
 }
 
-void App::ChargingScreen(){
-    
+void App::ChargingScreen()
+{
     auto d = disp->d;
 
-    if(shouldRedraw()){ 
+    bool redrawRequested = shouldRedraw();
 
-        disp->ForceFullNextRefresh();
-
-        disp->StartRefresh();
-        d->setRotation(2);
-            
-        d->fillScreen(white);
-
+    if(redrawRequested) {
         PowerStatus ps = {};
         power::GetPowerStatus(ps);
 
-        d->drawBitmap(15, 20, bitmaps::charging_battery, 175, 77, black);
+        int currentPct = ps.batteryCapacity_percentage;
+        float currentVoltage = (float)ps.batteryVoltage_mv / 1000.0f;
 
-        d->setFont(&FreeMonoBold12pt7b);
-        disp->print(10, 145, "Charging");
-        d->drawBitmap(144, 120, bitmaps::face_happy_1, 48, 48, black);
+        bool firstShow = (chargingScreenBatteryPct == -1);
+        bool valuesChanged = firstShow ||
+            currentPct != chargingScreenBatteryPct ||
+            fabsf(currentVoltage - chargingScreenBatteryVoltage_V) >= 0.01f;
 
-        disp->EndRefresh();
+        if(valuesChanged) {
+            if(firstShow) {
+                disp->ForceFullNextRefresh();
+            }
 
-        disp->Hibernate();
-    }
+            disp->StartRefresh();
+            d->setRotation(2);
+            d->fillScreen(white);
 
-    if(getBtn2MultiPressimmediate() == 2){
-        setState(State::MainMenu);
+            d->drawBitmap(15, 20, bitmaps::charging_battery, 175, 77, black);
+
+            d->setFont(&FreeMonoBold12pt7b);
+            disp->print(10, 145, "Charging");
+            d->drawBitmap(144, 120, bitmaps::face_happy_1, 48, 48, black);
+
+            d->setFont(&FreeMonoBold9pt7b);
+            disp->printf(10, 185, "%d%%  %.3fV", currentPct, currentVoltage);
+
+            disp->EndRefresh();
+            disp->Hibernate();
+
+            chargingScreenBatteryPct = currentPct;
+            chargingScreenBatteryVoltage_V = currentVoltage;
+        }
     }
 }
 
-void App::SettingsMenu(){
+void App::SettingsMenu()
+{
  auto d = disp->d;
 
     if(shouldRedraw()){ 
@@ -918,6 +1050,25 @@ void App::SettingsMenu(){
                 break;
         }
 
+        disp->print(0, 110, "Refresh:");
+        switch (globalState->currentSettings.refreshInterval)
+        {
+            case RefreshInterval::_1Minute:
+                disp->print(160, 110, "1m");
+                break;
+            case RefreshInterval::_5Minutes:
+                disp->print(160, 110, "5m");
+                break;
+            case RefreshInterval::_10Minutes:
+                disp->print(160, 110, "10m");
+                break;
+            default:
+                break;
+        }
+
+        disp->print(0, 130, "Night screen:");
+        disp->print(160, 130, globalState->currentSettings.nightScreen ? "On" : "Off");
+
         d->drawRect(140, 35 + selectedSetting * 20, 58, 20, black);
 
         disp->EndRefresh();
@@ -959,6 +1110,27 @@ void App::SettingsMenu(){
                 break;
             }
         }
+        else if(selectedSetting == 3)
+        {
+            switch (globalState->currentSettings.refreshInterval)
+            {
+            case RefreshInterval::_1Minute:
+                globalState->currentSettings.refreshInterval = RefreshInterval::_5Minutes;
+                break;
+            case RefreshInterval::_5Minutes:
+                globalState->currentSettings.refreshInterval = RefreshInterval::_10Minutes;
+                break;
+            case RefreshInterval::_10Minutes:
+                globalState->currentSettings.refreshInterval = RefreshInterval::_1Minute;
+                break;
+            default:
+                break;
+            }
+        }
+        else if(selectedSetting == 4)
+        {
+            globalState->currentSettings.nightScreen = !globalState->currentSettings.nightScreen;
+        }
 
         eeprom->WriteSettings(globalState->currentSettings);
 
@@ -966,7 +1138,7 @@ void App::SettingsMenu(){
     }
     else if(getBtn2MultiPressConfirmed() == 1){
         selectedSetting++;
-        selectedSetting %= 3;
+        selectedSetting %= 5;
         setRedraw();
     }
     else if(getBtn2MultiPressimmediate() == 2){
@@ -975,7 +1147,8 @@ void App::SettingsMenu(){
     }
 }
 
-void App::WelcomeScreen(){
+void App::WelcomeScreen()
+{
     auto d = disp->d;
 
     if(shouldRedraw()){ 
@@ -990,5 +1163,65 @@ void App::WelcomeScreen(){
     if(getBtn1Down() || getBtn2Down()){
         setState(State::StandardDisplay);
         globalState->shouldGoToSleep = true;
+    }
+}
+
+void App::DownloadingUpdate()
+{
+    auto d = disp->d;
+
+    if(shouldRedraw()){ 
+        disp->StartRefresh();
+        d->setRotation(2);
+        d->setFont(&FreeMonoBold12pt7b);
+        d->fillScreen(white);
+        d->setCursor(0, 90);
+        d->print("downloading\nfirmware...");
+        disp->EndRefresh();
+    }
+}
+
+void App::UpdateComplete()
+{
+    auto d = disp->d;
+
+    if(shouldRedraw()){
+        updateCompleteEntryTime_ms = (uint64_t)esp_timer_get_time() / 1000ULL;
+
+        disp->StartRefresh();
+        d->setRotation(2);
+        d->setFont(&FreeMonoBold12pt7b);
+        d->fillScreen(white);
+        d->setCursor(0, 90);
+        d->print("Update\nComplete!");
+        disp->EndRefresh();
+    }
+
+    bool timeout = updateCompleteEntryTime_ms != 0 &&
+                   ((uint64_t)esp_timer_get_time() / 1000ULL - updateCompleteEntryTime_ms) > 60000ULL;
+
+    if(getBtn1Down() || getBtn2Down() || timeout){
+        // Clear the FirmwareUpdate reason so it is not shown again on the next boot.
+        globalState->currentHeader.shutDownReason = ShutDownReason::Hibernate;
+        eeprom->UpdateStatusHeader(globalState->currentHeader);
+        setState(State::StandardDisplay);
+        globalState->shouldGoToSleep = true;
+    }
+}
+
+void App::NightMode()
+{
+    auto d = disp->d;
+
+    if(shouldRedraw()){ 
+
+        disp->ForceFullNextRefresh();
+        disp->StartRefresh();
+        d->setRotation(2);
+        d->fillScreen(white);
+        d->drawBitmap(0, 0, bitmaps::night_mode_screen, 200, 200, black);
+        disp->EndRefresh();
+
+        // preHibernateTasks() will handle hibernation
     }
 }

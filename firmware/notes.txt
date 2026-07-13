@@ -1,25 +1,18 @@
-Biggest issues:
 
-1. When the power gets too low, The the battery I'm using doesn't protect itself and can get undervolted, killing the battery.
-I have not yet managed to successfully enter a dead battery state where the firmware detects the battery is low. It works fine at higher voltages,
-but when the battery actually gets really low (like 3.4 volts), I run into big issues.
-
-2. I have multiple times got the device into an unexplainable state when switching batteries. The battery voltage rails read about 2.2V on a brand new battery,
-even though the battery is closer to 4V when disconnected from the device. The device will not boot properly. After disconnecting and reconnecting the battery multiple
-times, it will suddenly start behaving normally. This is obviouslly a huge problem that would need to be solved to make this device worth giving to other people
-
-
-for release:
-- improve history view
-- support viewing humidity history?
-- figure out how to detect when the fuel guage hasn't been configured. Maybe just do it any time there was an incorrect power cycle?
+TODO:
+- occasionally check the battery voltage if the device is has been kept alive due to interaction for an extended period of time. Currently the battery is only checked
+when the device wake up from sleep, which means that you could theoretically damage the battery by continuously pressing the buttons when it is near the low battery threshold.
 - utilize fuel gauge GPOUT (fuelGaugeGPIO)
-
-For battery saving:
-- downclock the CPU and enable automatic power saving modes
-- Light sleep the CPU when waiting for the display to refresh
-
-Low priority TODO:
+- add button sequence to factory reset the EEPROM 
+- should re-render display when time range setting is changed
 - replace datetime version that only has hour/minute/second. Change read/write to only use those registers to save time
 - can do some async i2c stuff, like when hibernating, you can hibernate the display at the same time as the eeprom is updated
+- create mock EEPROM driver and create unit tests to verify data retrieval logic and ensure there are not bugs related to ring buffer edges.
+- consider resetting climate data when changing the time (otherwise times shown in data viewer are innacurate)
+- update firmware update script to send over the current time before uploading the firmware. That way you get a free clock synchronization every time you upload.
 
+Bugs:
+- on rare occasion, the display will do a full refresh as the main menu is entered. It should only ever do partial refreshes.
+- when the battery first dips below the dead threshold voltage, it can possibly bounce back above the threshold depending on power draw and temperature. This means you can potentially turn it back on few a minutes after the battery dies
+    - create some sort of latch in the eerpom so that once the battery dies the device stays in it's dead state until it's actually been connected to a charger for a few minute at least.
+- when staying in menus for over a minute, climate samples are stored, but the graph does not show the recent samples until the next natural wake up cycle. Fix: update global sample buffer in addition to calling AddClimateSample()
