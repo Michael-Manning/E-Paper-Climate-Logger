@@ -1,3 +1,5 @@
+- Update readme with note about putting into boot mode for first time firmware upload.
+- Update readme with note about flattening screen side of the pcb after adding through-hole components.
 
 TODO:
 - occasionally check the battery voltage if the device is has been kept alive due to interaction for an extended period of time. Currently the battery is only checked

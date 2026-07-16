@@ -1,0 +1,12 @@
+I wanted the case to have rounded corners, so I made this version in FreeCAD.
+
+The model is fine, but the parameters are a mess. I just copied over all the variables from the OpenSCAD model and didn't even use half of them.
+
+The other big change is that this version uses 5mm M2 screws without a heat insert. It just has self tap holes to make assembly easier.
+It also has a small retention clip on the corner furthest from a screw to help keep it flat.
+
+Notes for putting it together:
+- Print with a 0.2mm nozzle and 0.08mm layer height.
+- Print in PLA and use PETG for the support interface layer on the back for smoother finish.
+- Sand the edges and corners of the PCB if the fit is too tight.
+- Do not force anything. It should come together easily and the case will bend if you force it together.
