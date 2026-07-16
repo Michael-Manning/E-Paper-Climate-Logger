@@ -7,6 +7,9 @@ namespace Constants
     //shows a small "s" on the standard display to indicate deep sleep mode. Mainly for debugging purposes
     constexpr bool sleepIndicator = false;
 
+    // shows an "e-reader" option in the main menu to read Harry Potter
+    constexpr bool easterEggs = false;
+
     // if the temperature is less than this, show a low temperature warning instead of trying to drive the display
     // Warning: setting this too high, even for testing purposes, will prevent the device from being programmed until the temperature is reached.
     constexpr float lowTemperatureDisplayThreshold_C = 3.0f; // display is rated for 0 degrees C, but it starts to struggle at low temperatures.
@@ -15,7 +18,7 @@ namespace Constants
     constexpr uint16_t lowBatteryThreshold_mv = 3530;
 
     // how many partial refreshes can happen before forcing a full refresh (excluding menu interaction)
-    constexpr int maxPartialFreshres = 5;
+    constexpr int maxPartialFreshres = 7;
 
     constexpr int firmwareVersionMajor = 1;
     constexpr int firmwareVersionMinor = 1;

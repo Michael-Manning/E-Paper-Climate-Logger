@@ -105,6 +105,32 @@ bool BQ27441::setTaperRate(uint16_t rate)
 	return writeExtendedData(BQ27441_ID_STATE, 27, trData, 2);
 }
 
+bool BQ27441::setChargeRelaxTime(uint8_t seconds)
+{
+   /*
+    * The device permits zero, but reject it here because zero provides
+    * effectively no qualification/debounce and is not useful for this
+    * application.
+    */
+   if (seconds == 0)
+      return false;
+
+   // Current Thresholds subclass 81, offset 8, U1, seconds.
+   return writeExtendedData(
+      BQ27441_ID_CURRENT_THRESH,
+      8,
+      &seconds,
+      1);
+}
+
+uint8_t BQ27441::chargeRelaxTime()
+{
+   // Current Thresholds subclass 81, offset 8, U1, seconds.
+   return readExtendedData(
+      BQ27441_ID_CURRENT_THRESH,
+      8);
+}
+
 /*****************************************************************************
  ********************** Battery Characteristics Functions ********************
  *****************************************************************************/

@@ -9,6 +9,7 @@
 
 #include "bitmaps.h"
 #include "Constants.h"
+#include "harrypotter.h"
 
 #include <Fonts/FreeMonoBold9pt7b.h>
 #include <Fonts/FreeMonoBold12pt7b.h>
@@ -408,9 +409,11 @@ void App::MainMenu()
         "View data",
         "Debug menu",
         "Settings",
-        "Set time"
+        "Set time",
+        "E-reader"
     };
-    const int optionsCount = 4;
+
+    const int optionsCount = Constants::easterEggs ? 5 : 4;
     
     if(shouldRedraw()){
         disp->StartRefresh();
@@ -473,6 +476,10 @@ void App::MainMenu()
         if(menuSelectedOption == 3){
             setState(State::TimeSet);
             timeSetStage = 0;
+        }
+        if(menuSelectedOption == 4){
+            setState(State::EReader);
+            ebookIndex = 0;
         }
     }
 }
@@ -960,6 +967,9 @@ void App::ChargingScreen()
     bool redrawRequested = shouldRedraw();
 
     if(redrawRequested) {
+
+        disp->EnableFullRefresh();
+
         PowerStatus ps = {};
         power::GetPowerStatus(ps);
 
@@ -972,9 +982,6 @@ void App::ChargingScreen()
             fabsf(currentVoltage - chargingScreenBatteryVoltage_V) >= 0.01f;
 
         if(valuesChanged) {
-            if(firstShow) {
-                disp->ForceFullNextRefresh();
-            }
 
             disp->StartRefresh();
             d->setRotation(2);
@@ -1222,6 +1229,151 @@ void App::NightMode()
         d->drawBitmap(0, 0, bitmaps::night_mode_screen, 200, 200, black);
         disp->EndRefresh();
 
-        // preHibernateTasks() will handle hibernation
+        // the display looks like shit when transitioning away from this screen. Full refresh to make it better.
+        disp->ForceFullNextRefresh();
+
+        // preHibernateTasks() will handle hibernation, don't worry about it here.
     }
+}
+
+// This is a version of the Adafruit getTextBounds() function that takes in a string length instead of a null terminated string
+void getTextBounds(GxEPD2_BW<GxEPD2_154_D67, GxEPD2_154_D67::HEIGHT> *d, const char *str, size_t len,
+                                 int16_t x, int16_t y,
+                                 int16_t *x1, int16_t *y1,
+                                 uint16_t *w, uint16_t *h) {
+  int16_t minx = INT16_MAX;
+  int16_t miny = INT16_MAX;
+  int16_t maxx = -1;
+  int16_t maxy = -1;
+
+  *x1 = x;
+  *y1 = y;
+  *w = 0;
+  *h = 0;
+
+  if (str == nullptr || len == 0) {
+    return;
+  }
+
+  for (size_t i = 0; i < len; ++i) {
+    // Cast through uint8_t so characters >= 0x80 are not sign-extended
+    // on platforms where char is signed.
+    const uint8_t c = static_cast<uint8_t>(
+        static_cast<unsigned char>(str[i]));
+
+    d->charBounds(c, &x, &y, &minx, &miny, &maxx, &maxy);
+  }
+
+  if (maxx >= minx) {
+    *x1 = minx;
+    *w = static_cast<uint16_t>(maxx - minx + 1);
+  }
+
+  if (maxy >= miny) {
+    *y1 = miny;
+    *h = static_cast<uint16_t>(maxy - miny + 1);
+  }
+}
+
+// easter egg page to read the first chapter of harry potter.
+void App::EReader(){
+
+    auto d = disp->d;
+
+    if(shouldRedraw()){ 
+
+        disp->EnableFullRefresh();
+
+        d->setTextWrap(false);
+
+        disp->StartRefresh();
+        d->setRotation(1);
+            
+        d->fillScreen(white);
+        d->setFont(&FreeMonoBold9pt7b);
+
+        // nav bar
+        d->drawCircle(4, 6, 2, black);
+        disp->print(12, 10, "Exit");
+        d->drawCircle(116, 6, 2, black);
+        disp->print(124, 10, "Next");
+        d->drawLine(0, 14, 199, 14, black);
+
+        // draw as much of the book that will fit without mid-word line breaks
+        const int linesPerPage = 10;
+        
+        size_t currentIndex = ebookIndex;
+        bool endOfBook = false;
+
+        int i = 0;
+        for (; i < linesPerPage; i++)
+        {
+            while (currentIndex < bookLen && harry_potter[currentIndex] == ' ') {
+                currentIndex++;
+            }
+
+            if (currentIndex >= bookLen) {
+                endOfBook = true;
+                break;
+            }
+
+            size_t lineEnd = currentIndex; 
+            size_t searchPos = currentIndex; 
+            bool firstWord = true;
+
+            for(int j = 0; j < 10; j++){
+                size_t wordEnd = searchPos;
+                while (wordEnd < bookLen && harry_potter[wordEnd] != ' ') {
+                    wordEnd++;
+                }
+
+                int16_t x1, y1;
+                uint16_t w, h;
+                getTextBounds(d, harry_potter + currentIndex, wordEnd - currentIndex, 0, 20, &x1, &y1, &w, &h);
+
+                if (w > dispw && !firstWord) {
+                    // this word doesn't fit and it's not the first word on the line
+                    // stop; lineEnd keeps the previous accepted boundary
+                    break;
+                }
+
+                // either it fits, or it's the first word and we allow it to overflow anyway
+                lineEnd = wordEnd;
+                firstWord = false;
+
+                if (wordEnd >= bookLen) {
+                    endOfBook = true;
+                    break;
+                }
+
+                searchPos = wordEnd + 1; // skip past the space and look for the next word
+            }
+
+            d->setCursor(0, 30 + i * 18);
+            d->write(reinterpret_cast<const uint8_t*>(harry_potter + currentIndex), lineEnd - currentIndex);
+
+            currentIndex = lineEnd;
+
+            if (endOfBook) {
+                i++; // count this line so we don't overwrite it below
+                break;
+            }
+        }
+
+        ebookIndex = static_cast<uint32_t>(currentIndex);
+
+        disp->EndRefresh();
+
+        d->setTextWrap(true);
+    }
+
+    if(getBtn2Down()){
+        setState(State::MainMenu);
+    }
+    else if(getBtn1Down()){
+        if (ebookIndex < bookLen) { // don't advance/redraw past the end
+            setRedraw();
+        }
+    }
+
 }

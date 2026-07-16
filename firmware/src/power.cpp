@@ -42,7 +42,10 @@ namespace power
 
    void HibernateSystem()
    {
-      const uint64_t wakeup_pins = (1ULL << pins::powerBtn) | (1ULL << pins::clockAlarm);
+      // Note: We would much rather use the USBDetect pin instead of the fuelGaugeGPIO for waking up due to plugging in the cable,
+      // but unfortunately, the USBDetect pin is not an ext1 pin, so we can't use it to wake from deep sleep.
+
+      const uint64_t wakeup_pins = (1ULL << pins::powerBtn) | (1ULL << pins::clockAlarm) | (1ULL << pins::fuelGaugeGPIO);
 
       esp_sleep_enable_ext1_wakeup(wakeup_pins, ESP_EXT1_WAKEUP_ANY_LOW);
 
@@ -109,10 +112,7 @@ namespace power
       if (!lipo.begin())
          return false;
 
-      if (!lipo.itporFlag())
-         return false;
-
-      Serial.println("Writing gague config");
+      Serial.println("Writing guage config");
 
       bool success = true;
 
@@ -135,6 +135,13 @@ namespace power
             Taper Rate = Design Capacity / (0.1 * Taper Current)
       */
       success &= lipo.setTaperRate(10 * BatteryCapacity_mah / TaperCurrent_ma);
+
+
+      // setup GPOUT interrupt to wake up the device when charging starts or stops
+      success &= lipo.setGPOUTPolarity(LOW);
+      success &= lipo.setGPOUTFunction(gpout_function::SOC_INT);
+      success &= lipo.setSOCIDelta(100); // unavoidable trigger on SOC delta. Set to 100 to minimize triggering.
+      success &= lipo.setChargeRelaxTime(1);
 
       success &= lipo.exitConfig();
 

@@ -50,9 +50,9 @@ struct StatusHeader{
    uint8_t index                   : 8 = 0;
    ShutDownReason shutDownReason   : 3;
    DisplayType selectedDisplayType : 2; // unused
-   bool displayingCold                : 1;
-   bool displayingNightMode           : 1;
-   bool displayingLowBattery          : 1;
+   bool displayingCold             : 1;
+   bool displayingNightMode        : 1;
+   bool displayingLowBattery       : 1;
    uint8_t partialRefreshCount     : 8 = 0;
    DisplayRefreshState refreshState: 8;
    uint16_t dataStart              : 16;

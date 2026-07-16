@@ -15,12 +15,14 @@ enum DeepWakeupCause{
     ButtonFromPowerOff,
     FirmwareUpdate,
     Alarm,
+    FuelGuageGPIOFromHibernate,
 };
 enum LightWakeupCause{
     PowerButton,
     MenuButton,
     Timer,
     ClockAlarm,
+    FuelGuageGPIO,
     NA,
     Unknown,
     Unknown_ext1
@@ -57,6 +59,7 @@ enum class State {
    DownloadingUpdate,  
    UpdateComplete,
    NightMode,
+   EReader,
    Nothing,
    Count
 };
@@ -81,6 +84,7 @@ public:
             [this](){ DownloadingUpdate(); },
             [this](){ UpdateComplete(); },
             [this](){ NightMode(); },
+            [this](){ EReader(); },
             [this](){  },
         };
     }
@@ -147,6 +151,7 @@ private:
     void DownloadingUpdate();
     void UpdateComplete();
     void NightMode();
+    void EReader();
 
     void drawGraph(int left, int right, int bottom, int top, const int16_t* dataY, int dataCount, int16_t* min, int16_t* max, bool forceRange = false, int16_t forcedMin = 0, int16_t forcedMax = 0);
 
@@ -165,5 +170,6 @@ private:
     bool viewDataShowHumidity = false;
     int chargingScreenBatteryPct = -1;
     float chargingScreenBatteryVoltage_V = -1.0f;
+    uint32_t ebookIndex = 0; // index of the of the first character of the current page.
 
 };

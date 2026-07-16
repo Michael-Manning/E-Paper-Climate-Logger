@@ -113,6 +113,25 @@ public:
 
 	bool setTaperRate(uint16_t rate);
 
+	/**
+	 * Set the charge-mode qualification time.
+	 *
+	 * This controls both:
+	 * - Entry into charge mode
+	 * - Exit from charge mode into relaxation
+	 *
+	 * @param seconds Qualification time from 1 to 255 seconds.
+	 * @return true when the data-memory write was attempted successfully.
+	 */
+	bool setChargeRelaxTime(uint8_t seconds);
+
+	/**
+	 * Read the configured charge-mode qualification time.
+	 *
+	 * @return Charge Relax Time in seconds.
+	 */
+	uint8_t chargeRelaxTime();
+
 	/////////////////////////////
 	// Battery Characteristics //
 	/////////////////////////////

@@ -64,7 +64,7 @@ constexpr uint32_t GetLightSleepInactivityThreshold_ms()
 uint32_t GetDeepSleepInactivityThreshold_ms()
 {
     // When the view data screen is open, use a longer timeout.
-    if(app.getState() == State::ViewData)
+    if(app.getState() == State::ViewData || app.getState() == State::EReader)
         return _extendedDeepSleepInactivityThreshold_ms;
     return _deepSleepInactivityThreshold_ms;
 }
@@ -139,6 +139,37 @@ void loadClimateDate(){
     );
     globalState.historyEnd = 0;
     globalState.historyStart = actualCount;
+}
+
+void handleDeadBattery(bool displayCold, bool shouldFullResetDisplay){
+    globalState.currentHeader.shutDownReason = ShutDownReason::LowBattery;
+                
+    // if the device dies while it's already cold, there's nothing we can do. Just shut down.
+    // Don't bother refreshing the screen if EEPROM indicates it's already being shown.
+    if(displayCold == false && globalState.currentHeader.displayingLowBattery == false)
+    {  
+        _display.Init(shouldFullResetDisplay, &globalState.currentHeader);
+        
+        _display.ForceFullNextRefresh();
+        _display.StartRefresh();
+        _display.d->setRotation(2);
+        _display.d->fillScreen(GxEPD_WHITE);
+        _display.d->drawBitmap(0, 0, bitmaps::dead_battery_screen, 200, 200, GxEPD_BLACK);
+        _display.EndRefresh();
+
+        globalState.currentHeader.displayingLowBattery = true;
+        globalState.currentHeader.displayingCold = false;
+        globalState.currentHeader.displayingNightMode = false;
+
+        eeprom.StartNextStatusHeader(globalState.currentHeader);
+        eeprom.UpdateStatusHeader(globalState.currentHeader);
+        
+        delay(50);
+    }
+    
+
+    _display.ShutDown();
+    power::ShutdownSystem();
 }
 
 void preHibernateTasks(){
@@ -254,35 +285,8 @@ void setup() {
 
         // handle dead battery
         if(power::USBConnected() == false && (ps.batteryVoltage_mv <= Constants::lowBatteryThreshold_mv)){
-            globalState.currentHeader.shutDownReason = ShutDownReason::LowBattery;
-                        
-            // if the device dies while it's already cold, there's nothing we can do. Just shut down.
-            // Don't bother refreshing the screen if EEPROM indicates it's already being shown.
-            if(displayCold == false && globalState.currentHeader.displayingLowBattery == false)
-            {  
-                _display.Init(shouldFullResetDisplay, &globalState.currentHeader);
-                
-                _display.ForceFullNextRefresh();
-                _display.StartRefresh();
-                _display.d->setRotation(2);
-                _display.d->fillScreen(GxEPD_WHITE);
-                _display.d->drawBitmap(0, 0, bitmaps::dead_battery_screen, 200, 200, GxEPD_BLACK);
-                _display.EndRefresh();
 
-                globalState.currentHeader.displayingLowBattery = true;
-                globalState.currentHeader.displayingCold = false;
-                globalState.currentHeader.displayingNightMode = false;
-
-                eeprom.StartNextStatusHeader(globalState.currentHeader);
-                eeprom.UpdateStatusHeader(globalState.currentHeader);
-                
-                delay(50);
-            }
-            
-
-            _display.ShutDown();
-            power::ShutdownSystem();
-
+            handleDeadBattery(displayCold, shouldFullResetDisplay);
             // unreachable code
         }
         globalState.currentHeader.displayingLowBattery = false;
@@ -429,15 +433,26 @@ void setup() {
                 }
             }
             else{
-                globalState.lastDeepWakeupCause = DeepWakeupCause::ButtonFromHibernate;
-                globalState.sleepIndicator = false;
-                logl("woke up due to button press");
-                // user pressed button while night screen was showing, clear the flag so
-                // standardDisplay is shown and normal operation resumes until next alarm wake up inactivity sleep
 
-                if(globalState.currentHeader.displayingNightMode)
-                    manualWakeUpFromNightScreen = true;
-                globalState.currentHeader.displayingNightMode = false;
+                // must have been woken up by the fuel guage interrupt if the device is charging
+                if(ps.Charging)
+                {
+                    globalState.lastDeepWakeupCause = DeepWakeupCause::FuelGuageGPIOFromHibernate;
+                    globalState.sleepIndicator = false;
+                    logl("woke up due charge state change");
+
+                }
+                else{   
+                    globalState.lastDeepWakeupCause = DeepWakeupCause::ButtonFromHibernate;
+                    globalState.sleepIndicator = false;
+                    logl("woke up due to button press");
+                    // user pressed button while night screen was showing, clear the flag so
+                    // standardDisplay is shown and normal operation resumes until next alarm wake up inactivity sleep
+                    
+                    if(globalState.currentHeader.displayingNightMode)
+                        manualWakeUpFromNightScreen = true;
+                    globalState.currentHeader.displayingNightMode = false;
+                }
             }
         }
         else{
@@ -531,7 +546,7 @@ void doLightSleep(){
     rtc_gpio_pulldown_dis((gpio_num_t)pins::menuBtn);
 
     esp_sleep_enable_ext1_wakeup(
-        (1ULL << pins::powerBtn) | (1ULL << pins::menuBtn) | (1ULL << pins::clockAlarm), 
+        (1ULL << pins::powerBtn) | (1ULL << pins::menuBtn) | (1ULL << pins::clockAlarm) | (1ULL << pins::fuelGaugeGPIO), 
         ESP_EXT1_WAKEUP_ANY_LOW);
 
     // Configure timer wakeup after deep sleep timeout to go into a deeper sleep state
@@ -564,6 +579,8 @@ void doLightSleep(){
             globalState.lastLightWakeupCause = LightWakeupCause::PowerButton;
         else if(_clock.CheckAlarm())
             globalState.lastLightWakeupCause = LightWakeupCause::ClockAlarm;
+        else if(getPinLevel(pins::fuelGaugeGPIO))
+            globalState.lastLightWakeupCause = LightWakeupCause::FuelGuageGPIO;
         else
             globalState.lastLightWakeupCause = LightWakeupCause::Unknown_ext1;
         break;
@@ -699,6 +716,20 @@ void loop() {
 
         eeprom.AddClimateSample(globalState.currentHeader, globalState.lastClimateReading);
  
+        // there is a chance the battery has reached critical levels due to the user keeping the device away for a long time. Normally this 
+        // is checked on device wake-up, but we should still check the battery at least once per minute when it is kept awake like this.
+
+        if(power::USBConnected() == false){
+
+            PowerStatus ps;
+            power::GetPowerStatus(ps);
+
+            if(ps.batteryVoltage_mv <= Constants::lowBatteryThreshold_mv){
+                handleDeadBattery(false, false);
+                // unreachable code
+            }
+        }
+
         if(app.getState() == State::StandardDisplay){
             app.setState(State::StandardDisplay); // refresh screen to reflect new time and temperature
         }
@@ -717,6 +748,7 @@ void loop() {
                 app.getState() != State::InvalidStateNotice &&
                 app.getState() != State::UpdateComplete){
                     app.setState(State::ChargingScreen);
+                    globalState.currentHeader.displayingNightMode = false;
                 }
             }
         }
