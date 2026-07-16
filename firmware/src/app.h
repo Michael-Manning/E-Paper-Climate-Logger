@@ -15,14 +15,14 @@ enum DeepWakeupCause{
     ButtonFromPowerOff,
     FirmwareUpdate,
     Alarm,
-    FuelGuageGPIOFromHibernate,
+    FuelGaugeGPIOFromHibernate,
 };
 enum LightWakeupCause{
     PowerButton,
     MenuButton,
     Timer,
     ClockAlarm,
-    FuelGuageGPIO,
+    FuelGaugeGPIO,
     NA,
     Unknown,
     Unknown_ext1

@@ -434,10 +434,10 @@ void setup() {
             }
             else{
 
-                // must have been woken up by the fuel guage interrupt if the device is charging
+                // must have been woken up by the fuel gauge interrupt if the device is charging
                 if(ps.Charging)
                 {
-                    globalState.lastDeepWakeupCause = DeepWakeupCause::FuelGuageGPIOFromHibernate;
+                    globalState.lastDeepWakeupCause = DeepWakeupCause::FuelGaugeGPIOFromHibernate;
                     globalState.sleepIndicator = false;
                     logl("woke up due charge state change");
 
@@ -580,7 +580,7 @@ void doLightSleep(){
         else if(_clock.CheckAlarm())
             globalState.lastLightWakeupCause = LightWakeupCause::ClockAlarm;
         else if(getPinLevel(pins::fuelGaugeGPIO))
-            globalState.lastLightWakeupCause = LightWakeupCause::FuelGuageGPIO;
+            globalState.lastLightWakeupCause = LightWakeupCause::FuelGaugeGPIO;
         else
             globalState.lastLightWakeupCause = LightWakeupCause::Unknown_ext1;
         break;

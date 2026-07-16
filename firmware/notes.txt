@@ -1,6 +1,6 @@
 
 TODO:
-- add button sequence to factory reset the EEPROM and fuel guage
+- add button sequence to factory reset the EEPROM and fuel gauge
 - should re-render display when time range setting is changed, or if new climate data has arrived while the user was in the menu.
 - replace datetime version that only has hour/minute/second. Change read/write to only use those registers to save time
 - can do some async i2c stuff, like when hibernating, you can hibernate the display at the same time as the eeprom is updated

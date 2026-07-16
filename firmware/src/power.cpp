@@ -112,7 +112,7 @@ namespace power
       if (!lipo.begin())
          return false;
 
-      Serial.println("Writing guage config");
+      Serial.println("Writing gauge config");
 
       bool success = true;
 
