@@ -85,7 +85,7 @@ For detailed firmware documentation, including folder structure, driver details,
 
 ### Enclosure Assembly
 
-Print the STL files from `CAD/export/` using a high‑resolution FDM printer (0.1 mm layer height recommended). The case uses M2 heat set inserts and M2 screws. Insert the PCB and battery, then screw the front and back halves together.
+Print the STL files from `CAD/V2/export/` using a high‑resolution FDM printer (0.08 mm layer height recommended). The case uses M2 heat set inserts and M2 screws. Insert the PCB and battery, then screw the front and back halves together. See note.txt in CAD\V2 for more details.
 
 ## Hardware Overview
 
@@ -103,12 +103,27 @@ The device is designed to run for over 1 week on a small battery:
 
 ## Issues
 - **Battery accuracy issues**: In my testing, the reported battery state of charge is not accurate. I believe this is due to a misconfiguration BQ27441.
-- **Low battery issues**: In my testing, when the battery is near depleted (3.4V), it can enter an unrecoverable state in which it cannot be powered back on. This can only be fixed by disconnecting the battery, externally recharging it, and reconnecting it. I think this may be caused by the cheap batteries I have been using from Aliexpress.
+- **Low battery issues**: In my testing, when connecting a battery to the device, it will sometimes not turn on until the battery has been connected/disconnected multiple times. 
+
+
+## Notes on building your own device
+
+I don't have a detailed build guide on how to build your own device at this time, but if you do decide to make one, these are some details you should know.
+
+- First firmware upload requires putting the ESP32-S3 in boot mode. There are three pads near the battery input that expose, BOOT, Enable, and ground. Attaching leads to these pins will allow you to put the ESP32 in boot mode.
+- The back of the PCB must be completely flat in order to fit in the case with the screen. After soldering through-hole components. like the buttons, you may need a dremel to flatten the leads/solder on the back of the PCB.
+
+
+## Troubleshooting
+
+- **Device does not power/stay on:** Ensure the battery is charged to at least 3.7V and try disconnecting/reconnecting the battery. Sometimes the battery must be reconnected multiple times before booting for the first time.
+- **Battery percentage inaccurate:** The BQ27441 requires a one-time capacity configuration; refer to the datasheet and adjust `BQ27441.cpp`. The fuel gauge also needs to "learn" the battery before it reports an accurate  state of charge. Fully charge the battery, then wait for it to completely deplete. This will help the fuel gauge report a more accurate charge level.
+- **Cannot upload program to the device:** Before uploading for the first time, the device must be manually put in boot mode. See the above note in building your own device.
 
 ## Limitations
-- **Temperature accuracy during handling**: The ESP32 generates heat when active, which can affect the SHT45 reading. The firmware reads the sensor immediately upon wake to minimise this error. Prolonged menu browsing or holding the device will skew the ambient reading for several minutes.
+- **Temperature accuracy during handling**: The ESP32 generates heat when active, which can affect the SHT45 reading. The firmware reads the sensor immediately upon wake to minimize this error. Prolonged menu browsing or holding the device will skew the ambient reading for several minutes.
 - **Display low‑temperature limit**: The e‑paper module is rated for operation above 0°C. Below freezing, the screen may not update reliably. Data logging continues in the background, and display functionality resumes when the temperature rises.
-- **No wireless connectivity**: This version does not include Bluetooth or Wi‑Fi data export to maximise battery life. Data can be viewed only on the device screen.
+- **No wireless connectivity**: While this device has the physical capability for bluetooth and WIFI, The current version of the firmware does not support it or allow you to use the radio to export data. Data can be viewed only on the device screen.
 
 ## Contributing
 

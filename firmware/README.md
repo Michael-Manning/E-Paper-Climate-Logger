@@ -36,8 +36,6 @@ The Arduino framework and ESP32-S3 board definition are also handled automatical
    pio device monitor
    ```
 
-Note: you may need to downgrade click to version 8.1.8 in PlatformIO's virtual environment in order to build with the platform version selected by platformio.ini.
-
 ## Folder Structure
 
 ```
@@ -144,22 +142,10 @@ The system includes an LTC2954 soft power button controller and a BQ24075 power 
 - Provides a button state output (GPIO14) to the ESP32.
 - Accepts a `KILL` input (GPIO37) from the ESP32 to trigger a software shutdown.
 
-## Notes on building your own device
-
-I don't have a detailed build guide on how to build your own device at this time, but if you do decide to make one, these are some details you should know.
-
-- First firmware upload requires putting the ESP32-S3 in boot mode. There are three pads near the battery input that expose, BOOT, Enable, and ground. Attatching leads to these pins will allow you to put the ESP32 in boot mode.
-- The back of the PCB must be completely flat in order to fit in the case with the screen. After soldering through-hole components. like the buttons, you may need a dremmel to flatten the leads/solder on the back of the PCB.
 
 ## Building Custom Hardware
 
 If you are building a variant of the hardware, update `pinout.h` to match your GPIO assignments. The power management logic (charge status, USB detect, power kill) can be adjusted in `power.cpp` and `platform.cpp`.
-
-## Troubleshooting
-
-- **Device does not power/stay on:** Ensure the battery is charged to at least 3.7V and try disconnecting/reconnecting the battery. Sometimes the battery must be reconnected multiple times before booting for the first time.
-- **Battery percentage inaccurate:** The BQ27441 requires a one-time capacity configuration; refer to the datasheet and adjust `BQ27441.cpp`.
-- **Cannot upload program to the device:** Before uploading for the first time, the device must be manually put in boot mode. See the above note in building your own device.
 
 ---
 
