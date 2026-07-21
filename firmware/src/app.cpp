@@ -253,11 +253,11 @@ void App::StandardDisplay()
 
         d->drawBitmap(2, 0, bitmaps::thermometer32, 12, 32, black);
 
-        // draw temperature value, degree symbol, and arror
+        // draw temperature value, degree symbol, and error
         {
             char tempstr[8];
 
-            if(globalState->currentSettings.tempFormat == TemperatureFormat::Celcius){
+            if(globalState->currentSettings.tempFormat == TemperatureFormat::Celsius){
                 
                 // separate integer and decimal digits with proper rounding
                 int iv;
@@ -377,7 +377,7 @@ void App::StandardDisplay()
                 
             ClimateSample mins = {.temperature_raw = min};
             ClimateSample maxs = {.temperature_raw = max};
-            if(globalState->currentSettings.tempFormat == TemperatureFormat::Celcius){
+            if(globalState->currentSettings.tempFormat == TemperatureFormat::Celsius){
                 disp->printf(140, 199, "%.2f", mins.Temperature_c());
                 disp->printf(140, 79, "%.2f", maxs.Temperature_c());
             }
@@ -553,7 +553,7 @@ void App::DebugMenu()
             disp->printf(0, 80, "current: %dmA", (int)ps.averageCurrent_ma);
             disp->printf(0, 100, "Battery: %d%%", (int)ps.batteryCapacity_percentage);
 
-            if(globalState->currentSettings.tempFormat == TemperatureFormat::Celcius)
+            if(globalState->currentSettings.tempFormat == TemperatureFormat::Celsius)
                 disp->printf(0, 120, "temp: %.2f C", globalState->lastClimateReading.Temperature_c());
             else
                 disp->printf(0, 120, "temp: %.1f F", globalState->lastClimateReading.Temperature_f());
@@ -742,10 +742,10 @@ void App::ViewData()
                 disp->print(150, 43, "100%");
                 disp->print(170, 195, "0%");
             } else {
-                bool isCelcius = (globalState->currentSettings.tempFormat == TemperatureFormat::Celcius);
-                float fMax = isCelcius ? (gMax / 100.0f) : (gMax / 100.0f * 9.0f / 5.0f + 32.0f);
-                float fMin = isCelcius ? (gMin / 100.0f) : (gMin / 100.0f * 9.0f / 5.0f + 32.0f);
-                char unitCh = isCelcius ? 'C' : 'F';
+                bool isCelsius = (globalState->currentSettings.tempFormat == TemperatureFormat::Celsius);
+                float fMax = isCelsius ? (gMax / 100.0f) : (gMax / 100.0f * 9.0f / 5.0f + 32.0f);
+                float fMin = isCelsius ? (gMin / 100.0f) : (gMin / 100.0f * 9.0f / 5.0f + 32.0f);
+                char unitCh = isCelsius ? 'C' : 'F';
                 sprintf(buf, "%.1f%c", fMax, unitCh);
                 disp->print(140, 43, buf);
                 sprintf(buf, "%.1f%c", fMin, unitCh);
@@ -1033,7 +1033,7 @@ void App::SettingsMenu()
         }
 
         disp->print(0, 50, "Temp unit:");
-        disp->printf(163, 50, "%c", globalState->currentSettings.tempFormat == TemperatureFormat::Celcius ? 'C' : 'F');
+        disp->printf(163, 50, "%c", globalState->currentSettings.tempFormat == TemperatureFormat::Celsius ? 'C' : 'F');
 
         disp->print(0, 70, "Time format:");
         disp->printf(160, 70, "%s", globalState->currentSettings.timeFormat == TimeFormat::_12Hour ? "12h" : "24h");
@@ -1085,10 +1085,10 @@ void App::SettingsMenu()
 
         if (selectedSetting == 0)
         {
-            if (globalState->currentSettings.tempFormat == TemperatureFormat::Celcius)
+            if (globalState->currentSettings.tempFormat == TemperatureFormat::Celsius)
                 globalState->currentSettings.tempFormat = TemperatureFormat::Fahrenheit;
             else
-                globalState->currentSettings.tempFormat = TemperatureFormat::Celcius;
+                globalState->currentSettings.tempFormat = TemperatureFormat::Celsius;
         }
         else if (selectedSetting == 1)
         {
@@ -1237,7 +1237,7 @@ void App::NightMode()
 }
 
 // This is a version of the Adafruit getTextBounds() function that takes in a string length instead of a null terminated string
-void getTextBounds(GxEPD2_BW<GxEPD2_154_D67, GxEPD2_154_D67::HEIGHT> *d, const char *str, size_t len,
+void getTextBounds(DisplayGFXSubclass *d, const char *str, size_t len,
                                  int16_t x, int16_t y,
                                  int16_t *x1, int16_t *y1,
                                  uint16_t *w, uint16_t *h) {
@@ -1261,7 +1261,7 @@ void getTextBounds(GxEPD2_BW<GxEPD2_154_D67, GxEPD2_154_D67::HEIGHT> *d, const c
     const uint8_t c = static_cast<uint8_t>(
         static_cast<unsigned char>(str[i]));
 
-    d->charBounds(c, &x, &y, &minx, &miny, &maxx, &maxy);
+    d->calculateCharBounds(c, &x, &y, &minx, &miny, &maxx, &maxy);
   }
 
   if (maxx >= minx) {

@@ -47,13 +47,13 @@ enum class DisplayRefreshState : uint8_t{
 };
 
 struct StatusHeader{
-   uint8_t index                   : 8 = 0;
+   uint8_t index                   : 8;
    ShutDownReason shutDownReason   : 3;
    DisplayType selectedDisplayType : 2; // unused
    bool displayingCold             : 1;
    bool displayingNightMode        : 1;
    bool displayingLowBattery       : 1;
-   uint8_t partialRefreshCount     : 8 = 0;
+   uint8_t partialRefreshCount     : 8;
    DisplayRefreshState refreshState: 8;
    uint16_t dataStart              : 16;
    uint16_t dataCount              : 16;
@@ -63,6 +63,7 @@ static_assert(sizeof(StatusHeader) < flash::pageSize);
 
 static inline StatusHeader FreshHeader(){
     return StatusHeader{
+        .index = 0,
         .shutDownReason = ShutDownReason::Unplanned,
         .selectedDisplayType = DisplayType::Temp_Humi_Time,
         .displayingCold = false,
@@ -104,7 +105,7 @@ static_assert(sizeof(Settings) < flash::pageSize);
 
 static inline Settings DefaultSettings(){
     return Settings{
-        .tempFormat = TemperatureFormat::Celcius,
+        .tempFormat = TemperatureFormat::Celsius,
         .timeFormat = TimeFormat::_12Hour,
         .graphRange = GraphRange::_30Minutes,
         .refreshInterval = RefreshInterval::_1Minute,

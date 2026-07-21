@@ -4,6 +4,27 @@
 #include <Fonts/FreeMonoBold9pt7b.h>
 #include "EEPROM.h"
 
+// This class only exists to strip protected access of the Adafruit GFX charBounds function.
+class DisplayGFXSubclass : public GxEPD2_BW<GxEPD2_154_D67, GxEPD2_154_D67::HEIGHT>
+{
+    public:
+        DisplayGFXSubclass(int16_t cs, int16_t dc, int16_t rst, int16_t busy)
+            : GxEPD2_BW<GxEPD2_154_D67, GxEPD2_154_D67::HEIGHT>(GxEPD2_154_D67(cs, dc, rst, busy)) // GDEH0154D67
+        {
+        }
+
+    void calculateCharBounds(
+        unsigned char c,
+        int16_t *x,
+        int16_t *y,
+        int16_t *minX,
+        int16_t *minY,
+        int16_t *maxX,
+        int16_t *maxY
+    ) {
+        charBounds(c, x, y, minX, minY, maxX, maxY);
+    }
+};
 
 class Display{
 public:
@@ -23,7 +44,7 @@ public:
     void printf(int x, int y, const char* fmt, ...);
     int  printfAndOffset(int x, int y, const char* fmt, ...);
 
-    GxEPD2_BW<GxEPD2_154_D67, GxEPD2_154_D67::HEIGHT> *d;
+    DisplayGFXSubclass *d;
 
     DisplayRefreshState getRefreshState();
     uint8_t getPartialRefreshCount();

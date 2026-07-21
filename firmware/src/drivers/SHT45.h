@@ -3,7 +3,7 @@
 constexpr uint8_t SHT45_Addr = 0x44;
 
 enum class TemperatureFormat : uint8_t{
-    Celcius = 0,
+    Celsius = 0,
     Fahrenheit = 1
 };
 

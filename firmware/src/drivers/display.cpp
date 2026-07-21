@@ -22,7 +22,7 @@
 SPIClass hspi(HSPI);
 
 
-GxEPD2_BW<GxEPD2_154_D67, GxEPD2_154_D67::HEIGHT> display(GxEPD2_154_D67(pins::dsp_CS, pins::dsp_DC, pins::dsp_RST, pins::dsp_BUSY)); // GDEH0154D67
+DisplayGFXSubclass display(pins::dsp_CS, pins::dsp_DC, pins::dsp_RST, pins::dsp_BUSY); 
 
 
 void centerPrint(const char* str, uint16_t x, uint16_t y, uint16_t w, uint16_t h)
