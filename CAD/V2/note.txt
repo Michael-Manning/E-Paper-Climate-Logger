@@ -12,3 +12,4 @@ Notes for putting it together with this case:
 - Print in PLA and use PETG for the support interface layer on the back for smoother finish.
 - Sand the edges and corners of the PCB if the fit is too tight.
 - Do not force anything. It should come together easily and the case will bend if you force it together.
+- The case is designed to be connected to an titanium clip commonly found on Aliexpress (see clip.png). When slicing the front of the case, insert a pause on the last layer before the clip insertion slot is closed up. Remove the small loop of the clip and place it into the slot before resuming the print so that it stays captive inside the case. I  reccomend adding a 0.8mm tall platform near the top of the case as well so that the loop lays perfectly flat when being printed over.
