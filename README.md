@@ -2,7 +2,7 @@
 
 ## About
 
-This project is an open-source, battery-powered temperature and humidity data logger with an always-on e-paper display. It records ambient conditions over time, stores readings in non-volatile memory, and displays current data along with a history graph. The device is designed for low power consumption, over 1 week of operation on a small Li‑Po battery.
+This project is an open-source, battery-powered temperature and humidity data logger with an always-on e-paper display. It records ambient conditions over time, stores readings in non-volatile memory, and displays current data along with a history graph. The device is designed for low power consumption, over 2 weeks of operation on a small Li‑Po battery.
 
 Key features:
 
@@ -12,6 +12,7 @@ Key features:
 - Power button controller to turn on/off
 - 1.54‑inch e‑paper display
 - Custom PCB & 3D‑printed case
+- Over 2 weeks of battery life on a single charge
 
 The entire project is open source, including hardware schematics, PCB layout, firmware, and enclosure CAD files. A detailed build video is available on YouTube: [E-Paper Climate Logger](https://www.youtube.com/watch?v=I44iGj7gLGA).
 
@@ -95,7 +96,7 @@ For complete schematics and PCB layout, open the KiCad project in `PCB/templog_m
 
 ## Power Management and Low‑Power Operation
 
-The device is designed to run for over 1 week on a small battery:
+The device is designed to run for over 2 weeks on a small battery:
 
 - In deep sleep, the ESP32‑S3 draws less than 20 µA. The DS3231 and BQ27441 remain active with negligible current.
 - The DS3231 alarm wakes the ESP32 at a configurable interval (default: 1 minute). The ESP32 wakes, logs a reading (about 400 ms at 50 mA), updates the display, and returns to sleep.
