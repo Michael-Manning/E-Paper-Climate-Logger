@@ -45,7 +45,16 @@ namespace power
       // Note: We would much rather use the USBDetect pin instead of the fuelGaugeGPIO for waking up due to plugging in the cable,
       // but unfortunately, the USBDetect pin is not an ext1 pin, so we can't use it to wake from deep sleep.
 
-      const uint64_t wakeup_pins = (1ULL << pins::powerBtn) | (1ULL << pins::clockAlarm) | (1ULL << pins::fuelGaugeGPIO);
+      // EXT1 ANY_LOW is level-triggered. Including a source that is already low
+      // makes deep sleep return immediately and can leave the ESP burning active
+      // current indefinitely. Only arm sources that are inactive (high) now.
+      uint64_t wakeup_pins = 0;
+      if (plt::getPinLevel(pins::powerBtn))
+         wakeup_pins |= (1ULL << pins::powerBtn);
+      if (plt::getPinLevel(pins::clockAlarm))
+         wakeup_pins |= (1ULL << pins::clockAlarm);
+      if (plt::getPinLevel(pins::fuelGaugeGPIO))
+         wakeup_pins |= (1ULL << pins::fuelGaugeGPIO);
 
       esp_sleep_enable_ext1_wakeup(wakeup_pins, ESP_EXT1_WAKEUP_ANY_LOW);
 

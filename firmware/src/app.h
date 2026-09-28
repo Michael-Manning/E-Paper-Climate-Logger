@@ -11,11 +11,13 @@
 #include "buttons.h"
 
 enum DeepWakeupCause{
-    ButtonFromHibernate,
+    MenuButtonFromHibernate,
+    PowerButtonFromHibernate,
     ButtonFromPowerOff,
     FirmwareUpdate,
     Alarm,
     FuelGaugeGPIOFromHibernate,
+    UnknownFromHibernate,
 };
 enum LightWakeupCause{
     PowerButton,

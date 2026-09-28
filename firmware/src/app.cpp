@@ -574,8 +574,14 @@ void App::DebugMenu()
             if(globalState->lastDeepWakeupCause == DeepWakeupCause::Alarm){
                 sprintf(dwakeupBuf, "alarm");
             }
-            else if(globalState->lastDeepWakeupCause == DeepWakeupCause::ButtonFromHibernate){ 
-                sprintf(dwakeupBuf, "p btn");
+            else if(globalState->lastDeepWakeupCause == DeepWakeupCause::MenuButtonFromHibernate){
+                sprintf(dwakeupBuf, "menu btn");
+            }
+            else if(globalState->lastDeepWakeupCause == DeepWakeupCause::PowerButtonFromHibernate){
+                sprintf(dwakeupBuf, "pwr btn");
+            }
+            else if(globalState->lastDeepWakeupCause == DeepWakeupCause::FuelGaugeGPIOFromHibernate){
+                sprintf(dwakeupBuf, "fuel gauge");
             }
             else if(globalState->lastDeepWakeupCause == DeepWakeupCause::FirmwareUpdate){ 
                 sprintf(dwakeupBuf, "update");
