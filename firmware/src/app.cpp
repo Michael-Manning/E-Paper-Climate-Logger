@@ -975,11 +975,13 @@ void App::ChargingScreen()
 
         int currentPct = ps.batteryCapacity_percentage;
         float currentVoltage = (float)ps.batteryVoltage_mv / 1000.0f;
+        int currentCurrent = ps.averageCurrent_ma;
 
         bool firstShow = (chargingScreenBatteryPct == -1);
         bool valuesChanged = firstShow ||
             currentPct != chargingScreenBatteryPct ||
-            fabsf(currentVoltage - chargingScreenBatteryVoltage_V) >= 0.01f;
+            fabsf(currentVoltage - chargingScreenBatteryVoltage_V) >= 0.01f ||
+            abs(currentCurrent - chargingScreenBatteryCurrent_mA) >= 2;
 
         if(valuesChanged) {
 
@@ -990,17 +992,19 @@ void App::ChargingScreen()
             d->drawBitmap(15, 20, bitmaps::charging_battery, 175, 77, black);
 
             d->setFont(&FreeMonoBold12pt7b);
-            disp->print(10, 145, "Charging");
+            disp->print(10, 145, ps.Charging ? "Charging" : "USB power");
             d->drawBitmap(144, 120, bitmaps::face_happy_1, 48, 48, black);
 
             d->setFont(&FreeMonoBold9pt7b);
-            disp->printf(10, 185, "%d%%  %.3fV", currentPct, currentVoltage);
+            disp->printf(10, 174, "%d%%  %.3fV", currentPct, currentVoltage);
+            disp->printf(10, 195, "Battery: %+dmA", currentCurrent);
 
             disp->EndRefresh();
             disp->Hibernate();
 
             chargingScreenBatteryPct = currentPct;
             chargingScreenBatteryVoltage_V = currentVoltage;
+            chargingScreenBatteryCurrent_mA = currentCurrent;
         }
     }
 }
