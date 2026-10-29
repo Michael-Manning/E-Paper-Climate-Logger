@@ -521,7 +521,7 @@ void App::InvalidStateNotice()
 
         disp->EndRefresh();
     }
-    if(getBtn2Down()){
+    if(getBtn1Down() || getBtn2Down()){
         setState(State::StandardDisplay);
     }
 }
