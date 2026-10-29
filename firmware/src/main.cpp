@@ -664,7 +664,8 @@ void loop() {
     }
 
     // handle manual shut down
-    if (getBtn2HeldMS() >= 3000 && shuttingDown == false) {
+    if (getBtn2() && getPinLevel(pins::powerBtn) == false &&
+        getBtn2HeldMS() >= 3000 && shuttingDown == false) {
 
         // Note:
         // The LTC2954 is configured to cut power after the button is held down for 6 seconds.

@@ -37,7 +37,7 @@ bool getBtn1Up(){
 }
 
 uint32_t getBtn1HeldMS(){
-    return currentTimestampMS - btn1HoldStartMS;
+    return currentBtn1State ? currentTimestampMS - btn1HoldStartMS : 0;
 }
 
 int getBtn1MultiPressimmediate(){
@@ -67,7 +67,7 @@ bool getBtn2Up(){
 }
 
 uint32_t getBtn2HeldMS(){
-    return currentTimestampMS - btn2HoldStartMS;
+    return currentBtn2State ? currentTimestampMS - btn2HoldStartMS : 0;
 }
 
 int getBtn2MultiPressimmediate(){
@@ -97,6 +97,10 @@ void updateButtonState(bool btn1State, bool btn2State, uint32_t timestampMS){
 
     if(getBtn1Down())
     {
+        // Start the hold timer on the accepted edge. This matters when the
+        // first sample after boot or sleep is already pressed.
+        btn1HoldStartMS = timestampMS;
+
         if(currentTimestampMS - btn1LastDownMS < multipressMaxPeriodMS)
         {
             if(btn1MultipressCount < maxMultipress && btn1MultipressCount != 0)
@@ -126,6 +130,11 @@ void updateButtonState(bool btn1State, bool btn2State, uint32_t timestampMS){
     
     if(getBtn2Down())
     {
+        // The LTC2954 interrupt may be the first button sample after wake.
+        // Starting from the default value of zero can otherwise turn that
+        // short wake pulse into a false multi-second hold.
+        btn2HoldStartMS = timestampMS;
+
         if(currentTimestampMS - btn2LastDownMS < multipressMaxPeriodMS)
         {
             if(btn2MultipressCount < maxMultipress && btn2MultipressCount != 0)
