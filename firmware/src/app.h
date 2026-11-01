@@ -104,6 +104,7 @@ public:
         if(currentState == State::ChargingScreen && newState != State::ChargingScreen) {
             chargingScreenBatteryPct = -1;
             chargingScreenBatteryVoltage_V = -1.0f;
+            chargingScreenBatteryCurrent_mA = INT16_MIN;
         }
 
         clearMultipressState();
@@ -170,6 +171,7 @@ private:
     bool viewDataShowHumidity = false;
     int chargingScreenBatteryPct = -1;
     float chargingScreenBatteryVoltage_V = -1.0f;
+    int chargingScreenBatteryCurrent_mA = INT16_MIN;
     uint32_t ebookIndex = 0; // index of the of the first character of the current page.
 
 };
