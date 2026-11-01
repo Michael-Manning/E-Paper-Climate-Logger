@@ -1006,7 +1006,7 @@ void App::ChargingScreen()
 
     // Keep the UI reachable even if USB is connected.
     if(getBtn1Down() || getBtn2Down()) {
-        setState(State::MainMenu);
+        setState(State::StandardDisplay);
         menuSelectedOption = 0;
         resetInactivity();
     }
