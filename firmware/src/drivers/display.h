@@ -3,13 +3,21 @@
 #include <GxEPD2_BW.h>
 #include <Fonts/FreeMonoBold9pt7b.h>
 #include "EEPROM.h"
+#include "../config.h"
+
+// Panel driver selection, see config.h.
+#if defined(DISPLAY_GDEY0154D67)
+using EPaperDriver = GxEPD2_154_GDEY0154D67;
+#else
+using EPaperDriver = GxEPD2_154_D67;
+#endif
 
 // This class only exists to strip protected access of the Adafruit GFX charBounds function.
-class DisplayGFXSubclass : public GxEPD2_BW<GxEPD2_154_GDEY0154D67, GxEPD2_154_GDEY0154D67::HEIGHT>
+class DisplayGFXSubclass : public GxEPD2_BW<EPaperDriver, EPaperDriver::HEIGHT>
 {
     public:
         DisplayGFXSubclass(int16_t cs, int16_t dc, int16_t rst, int16_t busy)
-            : GxEPD2_BW<GxEPD2_154_GDEY0154D67, GxEPD2_154_GDEY0154D67::HEIGHT>(GxEPD2_154_GDEY0154D67(cs, dc, rst, busy)) // GDEY0154D67
+            : GxEPD2_BW<EPaperDriver, EPaperDriver::HEIGHT>(EPaperDriver(cs, dc, rst, busy))
         {
         }
 

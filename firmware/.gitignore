@@ -5,3 +5,4 @@
 .vscode/ipch
 
 buildCache/
+src/config_local.h

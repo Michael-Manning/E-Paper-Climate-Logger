@@ -30,6 +30,8 @@ The Arduino framework and ESP32-S3 board definition are also handled automatical
    pio run --target upload
    ```
 
+   The default build targets the GDEH0154D67 panel (Waveshare 1.54" V2). For other hardware variants (e.g. the newer GDEY0154D67 panel), copy `src/config_local.example.h` to `src/config_local.h` and enable the matching settings. See `src/config.h` for all options.
+
 4. Monitor serial output (optional):
 
    ```
