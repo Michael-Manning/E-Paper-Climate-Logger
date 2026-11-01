@@ -516,7 +516,7 @@ void App::InvalidStateNotice()
 
         d->setFont(&FreeMonoBold9pt7b);
         d->setCursor(0, 96);
-        d->print("The processor powered off incorrectly. Climate data has been lost and time may be incorrect");
+        d->print("The processor powered off incorrectly. Climate data could have been lost and time may be incorrect");
         
 
         disp->EndRefresh();
