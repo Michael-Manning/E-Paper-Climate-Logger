@@ -6,10 +6,12 @@
 #include "../config.h"
 
 // Panel driver selection, see config.h.
-#if defined(DISPLAY_GDEY0154D67)
+#if DISPLAY_PANEL == DISPLAY_GDEH0154D67
+using EPaperDriver = GxEPD2_154_D67;
+#elif DISPLAY_PANEL == DISPLAY_GDEY0154D67
 using EPaperDriver = GxEPD2_154_GDEY0154D67;
 #else
-using EPaperDriver = GxEPD2_154_D67;
+#error "Unknown DISPLAY_PANEL, see config.h"
 #endif
 
 // This class only exists to strip protected access of the Adafruit GFX charBounds function.

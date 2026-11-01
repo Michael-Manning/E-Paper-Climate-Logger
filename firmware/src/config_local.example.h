@@ -4,4 +4,4 @@
 // config_local.h is gitignored, so these overrides stay on your machine.
 // See config.h for all available settings.
 
-// #define DISPLAY_GDEY0154D67
+// #define DISPLAY_PANEL DISPLAY_GDEY0154D67
