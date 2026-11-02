@@ -513,6 +513,9 @@ void App::InvalidStateNotice()
         
         disp->StartRefresh();
         d->setRotation(2);
+        d->fillScreen(white);
+        d->setTextColor(black);
+        d->setTextWrap(true);
 
         d->setFont(&FreeMonoBold9pt7b);
         d->setCursor(0, 96);
