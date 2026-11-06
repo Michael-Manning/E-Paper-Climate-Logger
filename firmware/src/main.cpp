@@ -329,8 +329,11 @@ void setup() {
                 {
                     logl("Last EEPROM header indicates unplanned shutdown");
                     app.setState(State::InvalidStateNotice);
-                    globalState.currentHeader = FreshHeader();
-                   eeprom.WriteSettings(DefaultSettings());
+
+                    // The header was read successfully and its ring-buffer
+                    // metadata is still usable. Keep the stored samples and
+                    // settings; an unexpected reset should warn the user, not
+                    // silently start a new empty history.
                 }
                 else{
                     MASSERT(false);
