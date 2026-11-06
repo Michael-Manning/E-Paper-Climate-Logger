@@ -65,7 +65,17 @@ namespace flash{
       // ensure page boundary is not crossed
       uint8_t inPage = PAGE_SIZE - (startAddress % PAGE_SIZE);
       if (count > inPage) return false;
-      
+
+      // Wire's I2C TX buffer defaults to 128 bytes (I2C_BUFFER_LENGTH), the same as our page
+      // size, but this transaction also needs 2 bytes for the address prefix. Without growing
+      // it, Wire.write() silently drops the last 2 bytes of a full-page write -- endTransmission()
+      // still reports success, so the data loss is otherwise undetectable.
+      static bool bufferSized = false;
+      if (!bufferSized) {
+         Wire.setBufferSize(PAGE_SIZE + 2);
+         bufferSized = true;
+      }
+
       Wire.beginTransmission(_24LC512_Addr);
       Wire.write(highByte(startAddress));
       Wire.write(lowByte(startAddress));
@@ -223,10 +233,13 @@ EEPROM::HeaderResult EEPROM::GetLastStatusHeader(StatusHeader& header){
     if(!res)
         return HeaderResult::ReadError;
 
-    MASSERT(header.dataStart < flash::dataCapacity);
-    MASSERT(header.dataCount <= flash::dataCapacity);
-
     std::memcpy(&header, headerData, sizeof(StatusHeader));
+
+    // Validate the bytes that were actually read. The old checks ran before
+    // memcpy() and therefore only examined the caller's previous value.
+    if(header.dataStart >= flash::dataCapacity || header.dataCount > flash::dataCapacity)
+        return HeaderResult::ReadError;
+
     return HeaderResult::Success;
 }
 
