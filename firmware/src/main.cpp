@@ -84,6 +84,13 @@ void resetInactivity(){
 }
 
 void configurePins() {
+   // EXT1 wake sources use the RTC pin mux. Return them to the digital GPIO
+   // block before configuring and polling them as ordinary inputs.
+   rtc_gpio_deinit((gpio_num_t)pins::menuBtn);
+   rtc_gpio_deinit((gpio_num_t)pins::powerBtn);
+   rtc_gpio_deinit((gpio_num_t)pins::clockAlarm);
+   rtc_gpio_deinit((gpio_num_t)pins::fuelGaugeGPIO);
+
    setPinMode(pins::menuBtn, PinMode::Input_Pullup);
    setPinMode(pins::powerBtn, PinMode::Input);
    setPinMode(pins::powerKill, PinMode::Input);
@@ -216,12 +223,19 @@ void doAlarmRoutine(bool updateDisplay){
 }
 
 void setup() {
+    // Read the wake registers before configurePins() returns the EXT1 pads from
+    // the RTC controller to the normal GPIO controller.  On some ESP32-S3
+    // revisions deinitializing the RTC pads first loses the per-pin wake
+    // information that distinguishes the power button from the other sources.
+    esp_sleep_wakeup_cause_t wakeupCause = esp_sleep_get_wakeup_cause();
+    uint64_t deepWakeupPins = esp_sleep_get_ext1_wakeup_status();
+
     configurePins();
     power::LatchOnOffController();
     setCpuFrequencyMhz(80);
 
-    esp_sleep_wakeup_cause_t wakeupCause = esp_sleep_get_wakeup_cause();
     bool wasHibernating = wakeupCause != ESP_SLEEP_WAKEUP_UNDEFINED;
+    bool returnToSleepAfterNonInteractiveWake = false;
     Wire.begin(pins::SDA, pins::SCL, 400000);
 
     // climate is priority because the MCU will heat up the board the longer it is on
@@ -433,26 +447,37 @@ void setup() {
                 }
             }
             else{
+                const bool wokeByMenu = deepWakeupPins & (1ULL << pins::menuBtn);
+                const bool wokeByPower = deepWakeupPins & (1ULL << pins::powerBtn);
+                const bool wokeByFuelGauge = deepWakeupPins & (1ULL << pins::fuelGaugeGPIO);
 
-                // must have been woken up by the fuel gauge interrupt if the device is charging
-                if(ps.Charging)
+                if(wokeByMenu || wokeByPower)
                 {
-                    globalState.lastDeepWakeupCause = DeepWakeupCause::FuelGaugeGPIOFromHibernate;
+                    globalState.lastDeepWakeupCause = wokeByMenu
+                        ? DeepWakeupCause::MenuButtonFromHibernate
+                        : DeepWakeupCause::PowerButtonFromHibernate;
                     globalState.sleepIndicator = false;
-                    logl("woke up due charge state change");
+                    logl(wokeByMenu ? "woke up due to menu button" : "woke up due to power button");
 
-                }
-                else{   
-                    globalState.lastDeepWakeupCause = DeepWakeupCause::ButtonFromHibernate;
-                    globalState.sleepIndicator = false;
-                    logl("woke up due to button press");
-                    // user pressed button while night screen was showing, clear the flag so
-                    // standardDisplay is shown and normal operation resumes until next alarm wake up inactivity sleep
-                    
+                    // User activity leaves night mode and resumes the normal display.
                     if(globalState.currentHeader.displayingNightMode)
                         manualWakeUpFromNightScreen = true;
                     globalState.currentHeader.displayingNightMode = false;
                 }
+                else if(wokeByFuelGauge)
+                {
+                    globalState.lastDeepWakeupCause = DeepWakeupCause::FuelGaugeGPIOFromHibernate;
+                    globalState.sleepIndicator = false;
+                    logl("woke up due charge state change");
+                    returnToSleepAfterNonInteractiveWake = true;
+                }
+                else{
+                    globalState.lastDeepWakeupCause = DeepWakeupCause::UnknownFromHibernate;
+                    globalState.sleepIndicator = false;
+                    logl("woke up from unknown deep-sleep source");
+                    returnToSleepAfterNonInteractiveWake = true;
+                }
+
             }
         }
         else{
@@ -477,6 +502,11 @@ void setup() {
                 // this is the first update since the temperature crossed the cold threshold, so we do a one time update to show the cold warning
                 app.handle(globalState);
             }
+            preHibernateTasks();
+            power::HibernateSystem();
+        }
+
+        if(returnToSleepAfterNonInteractiveWake && !power::USBConnected()){
             preHibernateTasks();
             power::HibernateSystem();
         }
@@ -545,9 +575,20 @@ void doLightSleep(){
     rtc_gpio_pullup_en((gpio_num_t)pins::menuBtn);
     rtc_gpio_pulldown_dis((gpio_num_t)pins::menuBtn);
 
-    esp_sleep_enable_ext1_wakeup(
-        (1ULL << pins::powerBtn) | (1ULL << pins::menuBtn) | (1ULL << pins::clockAlarm) | (1ULL << pins::fuelGaugeGPIO), 
-        ESP_EXT1_WAKEUP_ANY_LOW);
+    // EXT1 ANY_LOW wakes immediately when any selected pin is already low.
+    // Do not arm an asserted/stuck interrupt source, otherwise the wake loop
+    // continually resets the inactivity timeout and prevents deep sleep.
+    uint64_t wakeupPins = 0;
+    if(getPinLevel(pins::powerBtn))
+        wakeupPins |= (1ULL << pins::powerBtn);
+    if(getPinLevel(pins::menuBtn))
+        wakeupPins |= (1ULL << pins::menuBtn);
+    if(getPinLevel(pins::clockAlarm))
+        wakeupPins |= (1ULL << pins::clockAlarm);
+    if(getPinLevel(pins::fuelGaugeGPIO))
+        wakeupPins |= (1ULL << pins::fuelGaugeGPIO);
+
+    esp_sleep_enable_ext1_wakeup(wakeupPins, ESP_EXT1_WAKEUP_ANY_LOW);
 
     // Configure timer wakeup after deep sleep timeout to go into a deeper sleep state
     esp_sleep_enable_timer_wakeup((GetDeepSleepInactivityThreshold_ms() - GetLightSleepInactivityThreshold_ms()) * 1000); // in microseconds
@@ -561,7 +602,18 @@ void doLightSleep(){
     esp_light_sleep_start();
     const uint64_t slept_ms = now_rtc_ms() - sleep_start_ms;
 
-    rtc_gpio_pullup_dis((gpio_num_t)pins::menuBtn);
+    uint64_t lightWakeupPins = esp_sleep_get_ext1_wakeup_status();
+
+    // EXT1 leaves selected pads on the RTC pin mux after light sleep. Release
+    // that mux before gpio_get_level() and the normal button debounce run.
+    rtc_gpio_deinit((gpio_num_t)pins::menuBtn);
+    rtc_gpio_deinit((gpio_num_t)pins::powerBtn);
+    rtc_gpio_deinit((gpio_num_t)pins::clockAlarm);
+    rtc_gpio_deinit((gpio_num_t)pins::fuelGaugeGPIO);
+    setPinMode(pins::menuBtn, PinMode::Input_Pullup);
+    setPinMode(pins::powerBtn, PinMode::Input);
+    setPinMode(pins::clockAlarm, PinMode::Input);
+    setPinMode(pins::fuelGaugeGPIO, PinMode::Input);
 
     bool btn1State = !getPinLevel(pins::menuBtn);
     bool btn2State = !getPinLevel(pins::powerBtn);
@@ -573,13 +625,13 @@ void doLightSleep(){
     switch (wakeup_reason) {
     case ESP_SLEEP_WAKEUP_EXT1:{
 
-        if (btn1State) 
+        if (lightWakeupPins & (1ULL << pins::menuBtn))
             globalState.lastLightWakeupCause = LightWakeupCause::MenuButton;
-        else if (btn2State) 
+        else if (lightWakeupPins & (1ULL << pins::powerBtn))
             globalState.lastLightWakeupCause = LightWakeupCause::PowerButton;
-        else if(_clock.CheckAlarm())
+        else if(lightWakeupPins & (1ULL << pins::clockAlarm))
             globalState.lastLightWakeupCause = LightWakeupCause::ClockAlarm;
-        else if(getPinLevel(pins::fuelGaugeGPIO))
+        else if(lightWakeupPins & (1ULL << pins::fuelGaugeGPIO))
             globalState.lastLightWakeupCause = LightWakeupCause::FuelGaugeGPIO;
         else
             globalState.lastLightWakeupCause = LightWakeupCause::Unknown_ext1;
@@ -604,14 +656,18 @@ void doLightSleep(){
     // hard reset debounce because timer has been paused due to sleep
     debounceButton1(btn1State, millis(), true); 
 
-    // clear all held, multipress state;
-    updateButtonState(false, false, millis());
+    // EXT1 can wake on the LTC2954's minimum 32 ms interrupt pulse. By the
+    // time the GPIO mux is restored that pulse may already be over, so using
+    // only the live pin level loses short presses. Convert the latched wake
+    // source into one button sample; the next loop supplies the release.
+    const bool menuWake = globalState.lastLightWakeupCause == LightWakeupCause::MenuButton;
+    const bool powerWake = globalState.lastLightWakeupCause == LightWakeupCause::PowerButton;
+    updateButtonState(menuWake || btn1State, powerWake || btn2State, millis());
 
-    // check if light wakeup could just be a coincidence. Not user activity
-    if(
-        globalState.lastLightWakeupCause != LightWakeupCause::ClockAlarm &&
-        globalState.lastLightWakeupCause != LightWakeupCause::Timer
-    ){
+    // Only a real button press counts as user activity. Charge/fuel-gauge and
+    // unknown interrupt activity must not keep the processor awake forever.
+    if(globalState.lastLightWakeupCause == LightWakeupCause::MenuButton ||
+       globalState.lastLightWakeupCause == LightWakeupCause::PowerButton){
         resetInactivity();
     }
 }
@@ -643,7 +699,8 @@ void loop() {
         // via normal inactivity and preHibernateTasks() will handle the reason correctly.
     }
 
-    if(firstLoop && getBtn2Down() == false && globalState.lastDeepWakeupCause == DeepWakeupCause::ButtonFromHibernate){
+    if(firstLoop && getBtn2Down() == false &&
+       globalState.lastDeepWakeupCause == DeepWakeupCause::PowerButtonFromHibernate){
         // It's possible to wake up the device via button press and then release it quickly enough before it gets
         // registered by the button state manager. So if we just woke up and we know the button was just pressed according
         // to the wakeup source, we should still perform the button action (which is to enter the main menu)
