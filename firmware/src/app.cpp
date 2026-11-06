@@ -1006,6 +1006,13 @@ void App::ChargingScreen()
             chargingScreenBatteryVoltage_V = currentVoltage;
         }
     }
+
+    // Keep the UI reachable even if USB is connected.
+    if(getBtn1Down() || getBtn2Down()) {
+        setState(State::StandardDisplay);
+        menuSelectedOption = 0;
+        resetInactivity();
+    }
 }
 
 void App::SettingsMenu()

@@ -619,9 +619,17 @@ void doLightSleep(){
 uint32_t shutdownTimer = 0;
 bool shuttingDown = false;
 bool firstLoop = true;
+bool chargingScreenDismissed = false;
+bool previousUSBConnected = false;
 
 void loop() {
-    debugLogUSBConnected = power::USBConnected() && debugLogUSBConnected;
+    const bool usbConnected = power::USBConnected();
+    debugLogUSBConnected = usbConnected && debugLogUSBConnected;
+
+    if(usbConnected != previousUSBConnected){
+        chargingScreenDismissed = false;
+        previousUSBConnected = usbConnected;
+    }
 
     bool btn1Filtered = debounceButton1(!getPinLevel(pins::menuBtn), millis(), false);
     updateButtonState(
@@ -738,10 +746,10 @@ void loop() {
         }
     }
 
-    if(power::USBConnected()){
+    if(usbConnected){
         pollUSB();
 
-        if(power::ChargeStatus())
+        if(power::ChargeStatus() && !chargingScreenDismissed)
         {
             if(downloadingFirmware == false && LoggerEnabled == false){
                 if(app.getState() != State::ChargingScreen && 
@@ -764,7 +772,7 @@ void loop() {
 
     // deep sleep due to inactivity
     if(
-        !power::USBConnected() && !shuttingDown && 
+        !usbConnected && !shuttingDown &&
         (millis() - deepSleepInactivityTimer_ms > GetDeepSleepInactivityThreshold_ms() || globalState.shouldGoToSleep))
     {
         _display.EnableFullRefresh();
@@ -791,11 +799,14 @@ void loop() {
     // light sleep due to inactivity
     if(!shuttingDown && millis() - lightSleepInactivityTimer_ms > GetLightSleepInactivityThreshold_ms()){
         _display.Hibernate();
-        if(!power::USBConnected())
+        if(!usbConnected)
             doLightSleep();
     }
 
+    State stateBeforeHandle = app.getState();
     app.handle(globalState);
+    if(stateBeforeHandle == State::ChargingScreen && app.getState() != State::ChargingScreen)
+        chargingScreenDismissed = true;
 
     firstLoop = false;
 }
