@@ -35,7 +35,7 @@ void App::handle(const GlobalState& globalState)
 
 uint8_t _buffer[200 / 8 * 200];
 
-void plotLineWidthBW(int x0, int y0, int x1, int y1, float wd, GxEPD2_BW<GxEPD2_154_D67, GxEPD2_154_D67::HEIGHT> *d)
+void plotLineWidthBW(int x0, int y0, int x1, int y1, float wd, Adafruit_GFX *d)
 {
     int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
     int dy = abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
